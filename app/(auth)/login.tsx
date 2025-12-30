@@ -157,7 +157,7 @@ export default function LoginScreen() {
               </View>
               <Text style={styles.title}>OctoGo</Text>
               <Text style={styles.subtitle}>
-                {isAddingInstance ? 'Add another Octopus instance' : 'Octopus Deploy in your pocket'}
+                {isAddingInstance ? 'Add another Octopus instance' : 'Unofficial Octopus Deploy companion app'}
               </Text>
             </View>
 
@@ -284,33 +284,28 @@ const styles = StyleSheet.create({
   },
   header: {
     alignItems: 'center',
-    marginBottom: spacing.lg,
-    paddingTop: spacing.xl,
+    marginBottom: spacing.md,
   },
   logoContainer: {
-    width: 120,
-    height: 120,
-    borderRadius: 30,
-    backgroundColor: 'rgba(47, 147, 224, 0.1)',
+    width: 88,
+    height: 88,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: spacing.lg,
-    borderWidth: 1,
-    borderColor: 'rgba(47, 147, 224, 0.2)',
+    marginBottom: spacing.sm,
   },
   logo: {
-    width: 80,
-    height: 80,
+    width: 88,
+    height: 88,
   },
   title: {
-    fontSize: 36,
+    fontSize: 32,
     fontFamily: fontFamily.bold,
     color: colors.text.primary,
     marginBottom: spacing.xs,
     letterSpacing: -0.5,
   },
   subtitle: {
-    fontSize: fontSize.md,
+    fontSize: fontSize.sm,
     color: colors.text.secondary,
     textAlign: 'center',
   },
@@ -338,7 +333,7 @@ const styles = StyleSheet.create({
     height: 52,
   },
   footer: {
-    marginTop: spacing.xl,
+    marginTop: spacing.lg,
     alignItems: 'center',
   },
   securityBadge: {
