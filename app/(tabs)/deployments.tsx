@@ -1,0 +1,314 @@
+/**
+ * Deployments Screen
+ * View and monitor deployments
+ */
+
+import React, { useState, useCallback } from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
+  FlatList,
+  RefreshControl,
+  Pressable,
+} from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { useRouter } from 'expo-router';
+import * as Haptics from 'expo-haptics';
+import { useTasks } from '../../src/hooks/useOctopusQuery';
+import { Card } from '../../src/components/ui/Card';
+import { StatusBadge } from '../../src/components/ui/StatusBadge';
+import { ErrorView } from '../../src/components/ui/ErrorView';
+import { EmptyState } from '../../src/components/ui/EmptyState';
+import { PageTitle } from '../../src/components/ui/PageTitle';
+import { colors } from '../../src/theme/colors';
+import { fontSize, spacing, borderRadius } from '../../src/theme/spacing';
+import type { Task } from '../../src/lib/api/types';
+
+type FilterState = 'all' | 'active' | 'success' | 'failed';
+
+const FILTER_OPTIONS: { key: FilterState; label: string; states?: string[] }[] = [
+  { key: 'all', label: 'All' },
+  { key: 'active', label: 'Active', states: ['Executing', 'Queued'] },
+  { key: 'success', label: 'Success', states: ['Success'] },
+  { key: 'failed', label: 'Failed', states: ['Failed', 'TimedOut', 'Canceled'] },
+];
+
+export default function DeploymentsScreen() {
+  const router = useRouter();
+  const [filter, setFilter] = useState<FilterState>('all');
+  
+  const activeStates = FILTER_OPTIONS.find(f => f.key === filter)?.states;
+  
+  const { data: tasksData, isLoading, error, refetch } = useTasks({
+    take: 50,
+    states: activeStates,
+    name: 'Deploy',
+  });
+  
+  const tasks = tasksData?.Items || [];
+
+  const getTimeAgo = (dateString: string): string => {
+    const date = new Date(dateString);
+    const now = new Date();
+    const seconds = Math.floor((now.getTime() - date.getTime()) / 1000);
+
+    if (seconds < 60) return 'Just now';
+    if (seconds < 3600) return `${Math.floor(seconds / 60)}m ago`;
+    if (seconds < 86400) return `${Math.floor(seconds / 3600)}h ago`;
+    return `${Math.floor(seconds / 86400)}d ago`;
+  };
+
+  const formatDuration = (duration: string): string => {
+    // Duration comes in format like "00:01:23.456"
+    const parts = duration.split(':');
+    if (parts.length >= 3) {
+      const hours = parseInt(parts[0]);
+      const minutes = parseInt(parts[1]);
+      const seconds = parseFloat(parts[2]).toFixed(0);
+      
+      if (hours > 0) return `${hours}h ${minutes}m`;
+      if (minutes > 0) return `${minutes}m ${seconds}s`;
+      return `${seconds}s`;
+    }
+    return duration;
+  };
+
+  const handleTaskPress = useCallback((task: Task) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    router.push(`/task/${task.Id}`);
+  }, [router]);
+
+  const renderTask = useCallback(({ item }: { item: Task }) => (
+    <Card
+      onPress={() => handleTaskPress(item)}
+      style={styles.taskCard}
+    >
+      <View style={styles.taskHeader}>
+        <View style={styles.taskInfo}>
+          <Text style={styles.taskDescription} numberOfLines={2}>
+            {item.Description}
+          </Text>
+        </View>
+        <StatusBadge status={item.State} size="sm" />
+      </View>
+      
+      <View style={styles.taskFooter}>
+        <View style={styles.taskMeta}>
+          {item.State === 'Executing' && (
+            <View style={styles.progressIndicator}>
+              <View style={styles.progressDot} />
+              <Text style={styles.progressText}>In progress</Text>
+            </View>
+          )}
+          
+          {item.IsCompleted && item.Duration && (
+            <Text style={styles.duration}>
+              ⏱️ {formatDuration(item.Duration)}
+            </Text>
+          )}
+        </View>
+        
+        <Text style={styles.timeAgo}>
+          {getTimeAgo(item.QueueTime)}
+        </Text>
+      </View>
+      
+      {item.HasWarningsOrErrors && (
+        <View style={styles.warningBanner}>
+          <Text style={styles.warningText}>⚠️ Has warnings or errors</Text>
+        </View>
+      )}
+      
+      {item.HasPendingInterruptions && (
+        <View style={styles.interruptionBanner}>
+          <Text style={styles.interruptionText}>⏸️ Awaiting intervention</Text>
+        </View>
+      )}
+    </Card>
+  ), [handleTaskPress]);
+
+  const keyExtractor = useCallback((item: Task) => item.Id, []);
+
+  if (error) {
+    return (
+      <ErrorView
+        message={error.message}
+        onRetry={refetch}
+        fullScreen
+      />
+    );
+  }
+
+  return (
+    <SafeAreaView style={styles.container} edges={['left', 'right']}>
+      {/* Page Title */}
+      <PageTitle 
+        title="Tasks" 
+        icon="rocket"
+      />
+      
+      {/* Filter tabs */}
+      <View style={styles.filterContainer}>
+        {FILTER_OPTIONS.map((option) => (
+          <Pressable
+            key={option.key}
+            style={[
+              styles.filterTab,
+              filter === option.key && styles.filterTabActive,
+            ]}
+            onPress={() => {
+              Haptics.selectionAsync();
+              setFilter(option.key);
+            }}
+          >
+            <Text style={[
+              styles.filterTabText,
+              filter === option.key && styles.filterTabTextActive,
+            ]}>
+              {option.label}
+            </Text>
+          </Pressable>
+        ))}
+      </View>
+
+      <FlatList
+        data={tasks}
+        renderItem={renderTask}
+        keyExtractor={keyExtractor}
+        contentContainerStyle={styles.listContent}
+        refreshControl={
+          <RefreshControl
+            refreshing={isLoading}
+            onRefresh={refetch}
+            tintColor={colors.brand.primary}
+          />
+        }
+        ListEmptyComponent={
+          !isLoading ? (
+            <EmptyState
+              icon="📋"
+              title="No tasks found"
+              message={filter !== 'all' ? 'Try a different filter' : 'Tasks will appear here when deployments run'}
+            />
+          ) : null
+        }
+        ItemSeparatorComponent={() => <View style={styles.separator} />}
+      />
+    </SafeAreaView>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: colors.background.primary,
+  },
+  filterContainer: {
+    flexDirection: 'row',
+    padding: spacing.md,
+    paddingBottom: spacing.sm,
+    gap: spacing.sm,
+  },
+  filterTab: {
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+    borderRadius: borderRadius.full,
+    backgroundColor: colors.background.secondary,
+    borderWidth: 1,
+    borderColor: colors.border.muted,
+  },
+  filterTabActive: {
+    backgroundColor: colors.brand.primary,
+    borderColor: colors.brand.primary,
+  },
+  filterTabText: {
+    color: colors.text.secondary,
+    fontSize: fontSize.sm,
+    fontWeight: '500',
+  },
+  filterTabTextActive: {
+    color: colors.white,
+  },
+  listContent: {
+    padding: spacing.md,
+    paddingTop: spacing.sm,
+    flexGrow: 1,
+  },
+  separator: {
+    height: spacing.sm,
+  },
+  taskCard: {
+    padding: spacing.md,
+  },
+  taskHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: spacing.sm,
+  },
+  taskInfo: {
+    flex: 1,
+    marginRight: spacing.sm,
+  },
+  taskDescription: {
+    color: colors.text.primary,
+    fontSize: fontSize.md,
+    fontWeight: '500',
+    lineHeight: 22,
+  },
+  taskFooter: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  taskMeta: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+  },
+  progressIndicator: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+  },
+  progressDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: colors.brand.primary,
+  },
+  progressText: {
+    color: colors.brand.primary,
+    fontSize: fontSize.xs,
+    fontWeight: '500',
+  },
+  duration: {
+    color: colors.text.secondary,
+    fontSize: fontSize.xs,
+  },
+  timeAgo: {
+    color: colors.text.tertiary,
+    fontSize: fontSize.xs,
+  },
+  warningBanner: {
+    backgroundColor: colors.status.warningDim,
+    marginTop: spacing.sm,
+    padding: spacing.sm,
+    borderRadius: borderRadius.sm,
+  },
+  warningText: {
+    color: colors.status.warning,
+    fontSize: fontSize.xs,
+  },
+  interruptionBanner: {
+    backgroundColor: colors.status.pendingDim,
+    marginTop: spacing.sm,
+    padding: spacing.sm,
+    borderRadius: borderRadius.sm,
+  },
+  interruptionText: {
+    color: colors.status.pending,
+    fontSize: fontSize.xs,
+  },
+});
