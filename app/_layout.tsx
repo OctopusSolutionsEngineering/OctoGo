@@ -4,7 +4,7 @@
  */
 
 import React, { useEffect, useCallback } from 'react';
-import { View, Pressable } from 'react-native';
+import { View, Pressable, Alert } from 'react-native';
 import { Stack, useRouter, useSegments } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -12,6 +12,7 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import * as SplashScreen from 'expo-splash-screen';
+import * as Updates from 'expo-updates';
 import {
   useFonts,
   Quicksand_300Light,
@@ -123,6 +124,34 @@ function ThemedApp() {
   );
 }
 
+// Check for OTA updates on app launch
+async function checkForUpdates() {
+  if (__DEV__) return; // Skip in development
+  
+  try {
+    const update = await Updates.checkForUpdateAsync();
+    if (update.isAvailable) {
+      await Updates.fetchUpdateAsync();
+      Alert.alert(
+        'Update Available',
+        'A new version has been downloaded. Restart to apply the update?',
+        [
+          { text: 'Later', style: 'cancel' },
+          { 
+            text: 'Restart', 
+            onPress: async () => {
+              await Updates.reloadAsync();
+            }
+          },
+        ]
+      );
+    }
+  } catch (error) {
+    // Silently fail - updates are not critical
+    console.log('Error checking for updates:', error);
+  }
+}
+
 export default function RootLayout() {
   const [fontsLoaded, fontError] = useFonts({
     Quicksand_300Light,
@@ -131,6 +160,11 @@ export default function RootLayout() {
     Quicksand_600SemiBold,
     Quicksand_700Bold,
   });
+
+  // Check for updates on mount
+  useEffect(() => {
+    checkForUpdates();
+  }, []);
 
   useEffect(() => {
     if (fontsLoaded || fontError) {

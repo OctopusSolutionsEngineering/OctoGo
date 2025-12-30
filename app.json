@@ -2,7 +2,7 @@
   "expo": {
     "name": "OctoGo",
     "slug": "OctoGo",
-    "version": "0.1.0",
+    "version": "0.1.1",
     "description": "Mobile companion app for Octopus Deploy. Monitor deployments, manage releases, trigger runbooks, and stay connected to your DevOps pipeline on the go.",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -10,14 +10,13 @@
     "newArchEnabled": true,
     "scheme": "octogo",
     "splash": {
-      "image": "./assets/icon.png",
-      "resizeMode": "contain",
       "backgroundColor": "#0D1117"
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.octogo.app",
-      "buildNumber": "1",
+      "bundleIdentifier": "app.octogo.app",
+      "buildNumber": "11",
+      "icon": "./assets/icon-square.png",
       "infoPlist": {
         "NSFaceIDUsageDescription": "Use Face ID to securely access your Octopus Deploy account",
         "ITSAppUsesNonExemptEncryption": false
@@ -29,7 +28,7 @@
         "backgroundColor": "#5956E3"
       },
       "edgeToEdgeEnabled": true,
-      "package": "com.octogo.app",
+      "package": "app.octogo.app",
       "versionCode": 1,
       "permissions": [
         "android.permission.USE_BIOMETRIC",
@@ -54,8 +53,15 @@
         {
           "faceIDPermission": "Use Face ID to securely access your Octopus Deploy account"
         }
-      ]
+      ],
+      "expo-updates"
     ],
+    "updates": {
+      "url": "https://u.expo.dev/8c22a6e2-41f3-4049-aa86-5919e44869ee"
+    },
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
     "experiments": {
       "typedRoutes": true
     },

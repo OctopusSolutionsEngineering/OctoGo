@@ -3,6 +3,14 @@
     "version": ">= 5.0.0",
     "appVersionSource": "local"
   },
+  "submit": {
+    "production": {
+      "ios": {
+        "appleId": "me@meanski.net",
+        "ascAppId": "6757174070"
+      }
+    }
+  },
   "build": {
     "development": {
       "developmentClient": true,
