@@ -3,7 +3,7 @@
  * Main app navigation with bottom tabs
  */
 
-import React, { useState, useCallback } from 'react';
+import React, { useCallback } from 'react';
 import { View, Pressable, Text } from 'react-native';
 import { Tabs, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -12,6 +12,7 @@ import { DrawerMenu } from '../../src/components/DrawerMenu';
 import { HeaderBrand } from '../../src/components/HeaderBrand';
 import { useAuth } from '../../src/context/AuthContext';
 import { useColors } from '../../src/context/ThemeContext';
+import { DrawerProvider, useDrawer } from '../../src/context/DrawerContext';
 import { fontSize, spacing } from '../../src/theme/spacing';
 
 type IconName = keyof typeof Ionicons.glyphMap;
@@ -23,20 +24,16 @@ interface TabIconProps {
   color: string;
 }
 
-export default function TabsLayout() {
+function TabsLayoutContent() {
   const router = useRouter();
   const { isEnterprise } = useAuth();
   const colors = useColors();
-  const [drawerVisible, setDrawerVisible] = useState(false);
+  const { isDrawerOpen, openDrawer, closeDrawer } = useDrawer();
   
-  const openDrawer = useCallback(() => {
+  const handleOpenDrawer = useCallback(() => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    setDrawerVisible(true);
-  }, []);
-  
-  const closeDrawer = useCallback(() => {
-    setDrawerVisible(false);
-  }, []);
+    openDrawer();
+  }, [openDrawer]);
   
   const goToSettings = useCallback(() => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -62,7 +59,7 @@ export default function TabsLayout() {
   // Hamburger menu button (for drawer access)
   const MenuButton = () => (
     <Pressable 
-      onPress={openDrawer}
+      onPress={handleOpenDrawer}
       style={{
         padding: spacing.sm,
       }}
@@ -90,7 +87,7 @@ export default function TabsLayout() {
   
   return (
     <>
-      <DrawerMenu visible={drawerVisible} onClose={closeDrawer} />
+      <DrawerMenu visible={isDrawerOpen} onClose={closeDrawer} />
       <Tabs
         screenOptions={{
           headerStyle: {
@@ -237,5 +234,13 @@ export default function TabsLayout() {
       />
     </Tabs>
     </>
+  );
+}
+
+export default function TabsLayout() {
+  return (
+    <DrawerProvider>
+      <TabsLayoutContent />
+    </DrawerProvider>
   );
 }

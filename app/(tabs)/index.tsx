@@ -20,10 +20,12 @@ import { Ionicons } from '@expo/vector-icons';
 import { useDashboard, useMachines, useProjects } from '../../src/hooks/useOctopusQuery';
 import { useAuth } from '../../src/context/AuthContext';
 import { useFavorites } from '../../src/context/FavoritesContext';
+import { useDrawer } from '../../src/context/DrawerContext';
 import { Card } from '../../src/components/ui/Card';
 import { StatusBadge } from '../../src/components/ui/StatusBadge';
 import { ErrorView } from '../../src/components/ui/ErrorView';
 import { LoadingScreen } from '../../src/components/ui/LoadingScreen';
+import { OctopusApiError } from '../../src/lib/api/client';
 import { colors } from '../../src/theme/colors';
 import { fontSize, spacing, borderRadius } from '../../src/theme/spacing';
 import type { DashboardItem } from '../../src/lib/api/types';
@@ -32,6 +34,7 @@ export default function DashboardScreen() {
   const router = useRouter();
   const { user, serverVersion } = useAuth();
   const { favorites } = useFavorites();
+  const { openDrawer } = useDrawer();
   const { data: dashboard, isLoading, error, refetch } = useDashboard();
   const { data: machinesData } = useMachines({ take: 500 });
   const { data: projectsData } = useProjects({ take: 200 });
@@ -109,11 +112,21 @@ export default function DashboardScreen() {
   }, [router]);
 
   if (error) {
+    // Check if this is a permission/access error
+    const isPermissionError = error instanceof OctopusApiError && error.statusCode === 403;
+    const isSpaceAccessError = error.message?.includes('access to this space') || 
+                               error.message?.includes('does not have access to space');
+    
     return (
       <ErrorView
         message={error.message}
         onRetry={refetch}
         fullScreen
+        errorType={isPermissionError ? 'permission' : 'generic'}
+        secondaryAction={isSpaceAccessError ? {
+          title: 'Select Space',
+          onPress: openDrawer,
+        } : undefined}
       />
     );
   }

@@ -5,6 +5,7 @@
 
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../../theme/colors';
 import { borderRadius, fontSize, spacing } from '../../theme/spacing';
 import { Button } from './Button';
@@ -14,27 +15,84 @@ interface ErrorViewProps {
   message: string;
   onRetry?: () => void;
   fullScreen?: boolean;
+  /** Optional secondary action (e.g., "Switch Space") */
+  secondaryAction?: {
+    title: string;
+    onPress: () => void;
+  };
+  /** Type of error - affects icon and styling */
+  errorType?: 'generic' | 'permission' | 'network' | 'notFound';
 }
 
 export const ErrorView: React.FC<ErrorViewProps> = ({ 
-  title = 'Something went wrong',
+  title,
   message,
   onRetry,
   fullScreen = false,
+  secondaryAction,
+  errorType = 'generic',
 }) => {
+  // Determine icon and default title based on error type
+  const getIconName = (): keyof typeof Ionicons.glyphMap => {
+    switch (errorType) {
+      case 'permission':
+        return 'lock-closed-outline';
+      case 'network':
+        return 'cloud-offline-outline';
+      case 'notFound':
+        return 'search-outline';
+      default:
+        return 'alert-circle-outline';
+    }
+  };
+
+  const getDefaultTitle = (): string => {
+    switch (errorType) {
+      case 'permission':
+        return 'Access Denied';
+      case 'network':
+        return 'Connection Error';
+      case 'notFound':
+        return 'Not Found';
+      default:
+        return 'Something went wrong';
+    }
+  };
+
+  const displayTitle = title || getDefaultTitle();
+
   const content = (
     <>
-      <Text style={styles.icon}>⚠️</Text>
-      <Text style={styles.title}>{title}</Text>
-      <Text style={styles.message}>{message}</Text>
-      {onRetry && (
-        <Button 
-          title="Try Again" 
-          onPress={onRetry} 
-          variant="secondary"
-          style={styles.button}
+      <View style={[
+        styles.iconContainer,
+        errorType === 'permission' && styles.iconContainerPermission,
+      ]}>
+        <Ionicons 
+          name={getIconName()} 
+          size={32} 
+          color={errorType === 'permission' ? colors.status.warning : colors.status.error} 
         />
-      )}
+      </View>
+      <Text style={styles.title}>{displayTitle}</Text>
+      <Text style={styles.message}>{message}</Text>
+      <View style={styles.buttonContainer}>
+        {secondaryAction && (
+          <Button 
+            title={secondaryAction.title} 
+            onPress={secondaryAction.onPress} 
+            variant="primary"
+            style={styles.button}
+          />
+        )}
+        {onRetry && (
+          <Button 
+            title="Try Again" 
+            onPress={onRetry} 
+            variant="secondary"
+            style={styles.button}
+          />
+        )}
+      </View>
     </>
   );
 
@@ -72,11 +130,19 @@ const styles = StyleSheet.create({
   },
   content: {
     alignItems: 'center',
-    maxWidth: 300,
+    maxWidth: 320,
   },
-  icon: {
-    fontSize: 48,
+  iconContainer: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: colors.status.errorDim,
+    justifyContent: 'center',
+    alignItems: 'center',
     marginBottom: spacing.md,
+  },
+  iconContainerPermission: {
+    backgroundColor: colors.status.warningDim,
   },
   title: {
     color: colors.text.primary,
@@ -91,8 +157,13 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     lineHeight: 22,
   },
-  button: {
+  buttonContainer: {
     marginTop: spacing.lg,
+    gap: spacing.sm,
+    width: '100%',
+  },
+  button: {
+    minWidth: 140,
   },
 });
 

@@ -165,12 +165,25 @@ const transformError = (error: AxiosError<ApiError>): OctopusApiError => {
         'Authentication failed. Please check your API key.',
         status
       );
-    case 403:
+    case 403: {
+      // Extract the detailed error message from the API response
+      let message = 'You do not have permission to perform this action.';
+      
+      // Check for space access error
+      if (data?.ErrorMessage?.includes('does not have access to space')) {
+        message = 'You do not have access to this space. Try switching to a different space or check your permissions with your Octopus administrator.';
+      } else if (data?.ErrorMessage?.includes('permission to view')) {
+        message = data.ErrorMessage;
+      } else if (data?.ErrorMessage) {
+        message = data.ErrorMessage;
+      }
+      
       return new OctopusApiError(
-        'You do not have permission to perform this action.',
+        message,
         status,
         data?.Errors || []
       );
+    }
     case 404:
       return new OctopusApiError(
         'The requested resource was not found.',
