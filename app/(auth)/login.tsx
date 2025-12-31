@@ -120,7 +120,7 @@ export default function LoginScreen() {
       {/* Decorative glow behind logo */}
       <View style={styles.glowContainer}>
         <LinearGradient
-          colors={['rgba(47, 147, 224, 0.15)', 'rgba(0, 212, 170, 0.08)', 'transparent']}
+          colors={[colors.interactive.focus, colors.interactive.hover, 'transparent']}
           style={styles.glow}
           start={{ x: 0.5, y: 0 }}
           end={{ x: 0.5, y: 1 }}
@@ -262,7 +262,7 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   glow: {
-    width: SCREEN_WIDTH * 1.5,
+    width: SCREEN_WIDTH * 1.75,
     height: 400,
     borderRadius: SCREEN_WIDTH,
   },
@@ -342,17 +342,17 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
     paddingVertical: spacing.sm,
     paddingHorizontal: spacing.md,
-    backgroundColor: 'rgba(0, 212, 170, 0.08)',
+    backgroundColor: colors.interactive.hover,
     borderRadius: borderRadius.full,
     borderWidth: 1,
-    borderColor: 'rgba(0, 212, 170, 0.15)',
+    borderColor: colors.interactive.pressed,
   },
   securityIcon: {
     fontSize: fontSize.sm,
   },
   securityText: {
     fontSize: fontSize.xs,
-    color: colors.status.success,
+    color: colors.text.secondary,
     fontWeight: '500',
   },
 });
