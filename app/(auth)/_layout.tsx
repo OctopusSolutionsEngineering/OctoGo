@@ -12,6 +12,7 @@ export default function AuthLayout() {
       screenOptions={{
         headerShown: false,
         contentStyle: { backgroundColor: colors.background.primary },
+        navigationBarHidden: true,
       }}
     >
       <Stack.Screen name="login" />
