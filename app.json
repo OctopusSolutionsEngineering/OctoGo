@@ -2,7 +2,7 @@
   "expo": {
     "name": "OctoGo",
     "slug": "OctoGo",
-    "version": "0.1.1",
+    "version": "0.2.0",
     "description": "Mobile companion app for Octopus Deploy. Monitor deployments, manage releases, trigger runbooks, and stay connected to your DevOps pipeline on the go.",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
