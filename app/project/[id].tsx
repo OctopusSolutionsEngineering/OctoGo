@@ -53,11 +53,18 @@ type SectionId = 'dashboard' | 'process' | 'runbooks' | 'variables' | 'channels'
 export default function ProjectDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
-  const { serverUrl } = useAuth();
+  const { currentInstance } = useAuth();
   const { isFavorite, toggleFavorite } = useFavorites();
   const [expandedSections, setExpandedSections] = useState<Set<SectionId>>(new Set(['dashboard']));
   const [selectedRelease, setSelectedRelease] = useState<Release | null>(null);
   const [showK8sLiveStatus, setShowK8sLiveStatus] = useState(true); // Toggle for K8s live status
+  
+  // Lifecycle modal state
+  const [showLifecycleModal, setShowLifecycleModal] = useState(false);
+  
+  // Variables state - must be declared before any early returns to satisfy Rules of Hooks
+  const [showAllVariables, setShowAllVariables] = useState(false);
+  const [selectedVariable, setSelectedVariable] = useState<Variable | null>(null);
   
   const isProjectFavorite = isFavorite(id!);
   
@@ -65,9 +72,6 @@ export default function ProjectDetailScreen() {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     await toggleFavorite(id!);
   }, [id, toggleFavorite]);
-  
-  // Lifecycle modal state
-  const [showLifecycleModal, setShowLifecycleModal] = useState(false);
   
   // Data queries
   const { data: project, isLoading: projectLoading, error: projectError, refetch: refetchProject } = useProject(id!);
@@ -519,7 +523,7 @@ export default function ProjectDetailScreen() {
         <View style={styles.deploymentsSection}>
           <Text style={styles.subSectionTitle}>Deployments</Text>
           <EmptyState
-            icon="📋"
+            ionicon="pricetag-outline"
             title="No releases"
             message="Create your first release in Octopus Deploy"
           />
@@ -678,8 +682,6 @@ export default function ProjectDetailScreen() {
   };
 
   // Render Variables
-  const [showAllVariables, setShowAllVariables] = useState(false);
-  const [selectedVariable, setSelectedVariable] = useState<Variable | null>(null);
   const INITIAL_VARIABLES_COUNT = 15;
 
   const handleCopyToClipboard = async (text: string, label: string) => {
@@ -915,10 +917,19 @@ export default function ProjectDetailScreen() {
           headerStyle: { backgroundColor: colors.background.secondary },
           headerTintColor: colors.text.primary,
           headerRight: () => (
-            <Pressable onPress={handleToggleFavorite} hitSlop={8}>
+            <Pressable 
+              onPress={handleToggleFavorite} 
+              hitSlop={8}
+              style={{
+                width: 36,
+                height: 36,
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+            >
               <Ionicons 
                 name={isProjectFavorite ? 'star' : 'star-outline'} 
-                size={24} 
+                size={22} 
                 color={isProjectFavorite ? colors.status.warning : colors.text.tertiary} 
               />
             </Pressable>
@@ -1111,7 +1122,7 @@ export default function ProjectDetailScreen() {
             <View style={styles.projectHeader}>
               {project.Logo ? (
                 <Image 
-                  source={{ uri: `${serverUrl}${project.Logo}` }}
+                  source={{ uri: `${currentInstance?.serverUrl}${project.Logo}` }}
                   style={styles.projectLogo}
                   resizeMode="contain"
                 />

@@ -261,6 +261,9 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         isAddingInstance: false, // Clear the flag after successful login
       });
 
+      // Invalidate all queries to ensure fresh data loads with new instance
+      await queryClient.invalidateQueries({ queryKey: ['octopus'] });
+
       return { success: true };
     } catch (error) {
       // Clear credentials on auth failure - instance was never added
