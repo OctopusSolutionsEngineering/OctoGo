@@ -17,8 +17,9 @@ import { useRouter } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import Constants from 'expo-constants';
 import { Ionicons } from '@expo/vector-icons';
-import { useDashboard, useMachines } from '../../src/hooks/useOctopusQuery';
+import { useDashboard, useMachines, useProjects } from '../../src/hooks/useOctopusQuery';
 import { useAuth } from '../../src/context/AuthContext';
+import { useFavorites } from '../../src/context/FavoritesContext';
 import { Card } from '../../src/components/ui/Card';
 import { StatusBadge } from '../../src/components/ui/StatusBadge';
 import { ErrorView } from '../../src/components/ui/ErrorView';
@@ -30,8 +31,10 @@ import type { DashboardItem } from '../../src/lib/api/types';
 export default function DashboardScreen() {
   const router = useRouter();
   const { user, serverVersion } = useAuth();
+  const { favorites } = useFavorites();
   const { data: dashboard, isLoading, error, refetch } = useDashboard();
   const { data: machinesData } = useMachines({ take: 500 });
+  const { data: projectsData } = useProjects({ take: 200 });
 
   // Calculate stats
   const stats = useMemo(() => {
@@ -77,6 +80,12 @@ export default function DashboardScreen() {
     return new Map(dashboard.Projects.map(p => [p.Id, p.Name]));
   }, [dashboard]);
 
+  // Get favorited projects
+  const favoriteProjects = useMemo(() => {
+    if (!projectsData?.Items || favorites.length === 0) return [];
+    return projectsData.Items.filter(p => favorites.includes(p.Id));
+  }, [projectsData, favorites]);
+
   const getTimeAgo = (dateString: string): string => {
     const date = new Date(dateString);
     const now = new Date();
@@ -92,6 +101,11 @@ export default function DashboardScreen() {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     // Navigate to deployment details
     router.push(`/deployment/${item.DeploymentId}`);
+  }, [router]);
+
+  const handleProjectPress = useCallback((projectId: string) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    router.push(`/project/${projectId}`);
   }, [router]);
 
   if (error) {
@@ -192,6 +206,39 @@ export default function DashboardScreen() {
             <Ionicons name="chevron-forward" size={14} color={colors.text.subtle} />
           </Pressable>
         </View>
+
+        {/* Favorite Projects */}
+        {favoriteProjects.length > 0 && (
+          <View style={styles.favoritesSection}>
+            <View style={styles.sectionHeader}>
+              <View style={styles.sectionTitleRow}>
+                <Ionicons name="star" size={18} color={colors.brand.accent} style={{ marginRight: spacing.xs }} />
+                <Text style={styles.sectionTitle}>Favorites</Text>
+              </View>
+              <Pressable onPress={() => router.push('/projects')}>
+                <Text style={styles.seeAllText}>See All</Text>
+              </Pressable>
+            </View>
+
+            <View style={styles.favoritesList}>
+              {favoriteProjects.slice(0, 4).map((project) => (
+                <Pressable
+                  key={project.Id}
+                  style={styles.favoriteCard}
+                  onPress={() => handleProjectPress(project.Id)}
+                >
+                  <View style={[styles.overviewIconContainer, { backgroundColor: colors.brand.primary + '15' }]}>
+                    <Ionicons name="cube" size={18} color={colors.brand.primary} />
+                  </View>
+                  <Text style={styles.favoriteProjectName} numberOfLines={2}>
+                    {project.Name}
+                  </Text>
+                  <Ionicons name="chevron-forward" size={14} color={colors.text.subtle} />
+                </Pressable>
+              ))}
+            </View>
+          </View>
+        )}
 
         {/* Recent Deployments */}
         <View style={styles.recentSection}>
@@ -367,8 +414,10 @@ const styles = StyleSheet.create({
   section: {
     marginBottom: spacing.lg,
   },
+  favoritesSection: {
+    marginBottom: spacing.lg,
+  },
   recentSection: {
-    marginTop: spacing.sm,
     marginBottom: spacing.lg,
   },
   sectionHeader: {
@@ -376,6 +425,10 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: spacing.md,
+  },
+  sectionTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
   },
   sectionTitle: {
     color: colors.text.primary,
@@ -437,5 +490,29 @@ const styles = StyleSheet.create({
     color: colors.text.secondary,
     fontSize: fontSize.md,
     textAlign: 'center',
+  },
+  favoritesList: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.sm,
+  },
+  favoriteCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.background.secondary,
+    borderRadius: borderRadius.lg,
+    padding: spacing.sm,
+    borderWidth: 1,
+    borderColor: colors.border.muted,
+    gap: spacing.sm,
+    flex: 1,
+    minWidth: '47%',
+    maxWidth: '48%',
+  },
+  favoriteProjectName: {
+    flex: 1,
+    color: colors.text.primary,
+    fontSize: fontSize.sm,
+    fontWeight: '500',
   },
 });
