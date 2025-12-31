@@ -195,8 +195,8 @@ const ActivityItem: React.FC<ActivityItemProps> = ({ activity, depth = 0 }) => {
 
       {expanded && hasChildren && (
         <View style={styles.activityChildren}>
-          {activity.Children.map((child) => (
-            <ActivityItem key={child.Id} activity={child} depth={depth + 1} />
+          {activity.Children.map((child, index) => (
+            <ActivityItem key={`${child.Id}-${index}`} activity={child} depth={depth + 1} />
           ))}
         </View>
       )}
@@ -617,8 +617,8 @@ export default function TaskDetailScreen() {
             {/* Activity Logs */}
             {viewMode === 'activity' && task.ActivityLogs && task.ActivityLogs.length > 0 && (
               <Card style={styles.activityCard}>
-                {task.ActivityLogs.map((activity) => (
-                  <ActivityItem key={activity.Id} activity={activity} />
+                {task.ActivityLogs.map((activity, index) => (
+                  <ActivityItem key={`${activity.Id}-${index}`} activity={activity} />
                 ))}
               </Card>
             )}

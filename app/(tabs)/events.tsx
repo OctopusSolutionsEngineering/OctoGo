@@ -78,14 +78,42 @@ export default function EventsScreen() {
   const { data, isLoading, error, refetch, isRefetching } = useEvents({ take: 50 });
 
   const events = useMemo(() => data?.Items ?? [], [data]);
+  
+  const isEventClickable = useCallback((event: Event): boolean => {
+    const docIds: string[] = [
+      ...(event.RelatedDocumentIds || []),
+      ...(event.MessageReferences || []).map(ref => ref.ReferencedDocumentId)
+    ];
+    
+    return docIds.some(docId => 
+      docId.startsWith('ServerTasks-') ||
+      docId.startsWith('Deployments-') ||
+      docId.startsWith('Projects-') ||
+      docId.startsWith('Releases-') ||
+      docId.startsWith('Runbooks-') ||
+      docId.startsWith('Machines-')
+    );
+  }, []);
 
   const handleEventPress = useCallback((event: Event) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     
-    // Navigate to related document if applicable
-    const docIds = event.RelatedDocumentIds || [];
+    // Collect all document IDs from both RelatedDocumentIds and MessageReferences
+    const docIds: string[] = [
+      ...(event.RelatedDocumentIds || []),
+      ...(event.MessageReferences || []).map(ref => ref.ReferencedDocumentId)
+    ];
     
     // Try to find the most relevant document to navigate to
+    // Prioritize tasks first since they're often what users want to see
+    for (const docId of docIds) {
+      if (docId.startsWith('ServerTasks-')) {
+        router.push(`/task/${docId}`);
+        return;
+      }
+    }
+    
+    // Then check other document types
     for (const docId of docIds) {
       if (docId.startsWith('Deployments-')) {
         router.push(`/deployment/${docId}`);
@@ -107,20 +135,18 @@ export default function EventsScreen() {
         router.push(`/machine/${docId}`);
         return;
       }
-      if (docId.startsWith('ServerTasks-')) {
-        router.push(`/task/${docId}`);
-        return;
-      }
     }
   }, [router]);
 
   const renderEvent = useCallback(({ item }: { item: Event }) => {
     const icon = getEventIcon(item.Category);
     const iconColor = getEventColor(item.Category);
+    const isClickable = isEventClickable(item);
     
     return (
       <Pressable
-        onPress={() => handleEventPress(item)}
+        onPress={() => isClickable && handleEventPress(item)}
+        disabled={!isClickable}
         style={({ pressed }) => ({
           flexDirection: 'row',
           paddingHorizontal: 16,
@@ -128,6 +154,7 @@ export default function EventsScreen() {
           backgroundColor: pressed ? colors.background.tertiary : colors.background.primary,
           borderBottomWidth: 1,
           borderBottomColor: colors.border.muted,
+          opacity: isClickable ? 1 : 0.8,
         })}
       >
         {/* Icon */}
@@ -205,15 +232,17 @@ export default function EventsScreen() {
           </View>
         </View>
 
-        <Ionicons 
-          name="chevron-forward" 
-          size={16} 
-          color={colors.text.subtle} 
-          style={{ alignSelf: 'center', marginLeft: 8 }}
-        />
+        {isClickable && (
+          <Ionicons 
+            name="chevron-forward" 
+            size={16} 
+            color={colors.text.subtle} 
+            style={{ alignSelf: 'center', marginLeft: 8 }}
+          />
+        )}
       </Pressable>
     );
-  }, [handleEventPress]);
+  }, [handleEventPress, isEventClickable]);
 
   if (isLoading && !data) {
     return <LoadingScreen message="Loading events..." />;
