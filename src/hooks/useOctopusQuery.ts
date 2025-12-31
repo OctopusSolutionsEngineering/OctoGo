@@ -40,6 +40,7 @@ import {
   getRunbookSnapshots,
   createRunbookRun,
   getRunbookProcess,
+  getRunbookProcessById,
   getDeploymentProcess,
   getProjectVariables,
   getProjectSummary,
@@ -444,7 +445,7 @@ export const useTaskInterruptions = (taskId: string, options?: { enabled?: boole
     refetchInterval: options?.refetchInterval,
     // Don't retry on 404 errors - the endpoint may not exist for this task
     retry: (failureCount, error) => {
-      if (error?.status === 404) return false;
+      if (error?.statusCode === 404) return false;
       return failureCount < 2;
     },
   });
@@ -580,6 +581,18 @@ export const useRunbookProcess = (runbookId: string) => {
     queryKey: queryKeys.runbookProcess(runbookId),
     queryFn: () => getRunbookProcess(runbookId),
     enabled: !!runbookId,
+    staleTime: 5 * 60 * 1000, // 5 minutes - process rarely changes
+  });
+};
+
+/**
+ * Fetches runbook process by its process ID directly (more efficient when you already have the runbook)
+ */
+export const useRunbookProcessById = (processId: string | null | undefined) => {
+  return useQuery<RunbookProcess, OctopusApiError>({
+    queryKey: [...queryKeys.runbooks(), 'process', processId],
+    queryFn: () => getRunbookProcessById(processId!),
+    enabled: !!processId,
     staleTime: 5 * 60 * 1000, // 5 minutes - process rarely changes
   });
 };

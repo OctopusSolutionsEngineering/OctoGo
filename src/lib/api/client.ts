@@ -1023,13 +1023,39 @@ export const createRunbookRun = async (
 };
 
 /**
- * Gets the runbook process (steps) for a runbook
+ * Gets the runbook process (steps) for a runbook by runbook ID
+ * First fetches the runbook to get the RunbookProcessId, then fetches the process
  */
 export const getRunbookProcess = async (runbookId: string): Promise<RunbookProcess> => {
   return withRetry(async () => {
     const { client, spaceId } = await createClient();
+    
+    // First get the runbook to find the RunbookProcessId
+    const runbookResponse = await client.get<Runbook>(
+      spacePath(spaceId, `/runbooks/${sanitizePathSegment(runbookId)}`)
+    );
+    
+    const runbookProcessId = runbookResponse.data.RunbookProcessId;
+    if (!runbookProcessId) {
+      return { Id: '', RunbookId: runbookId, SpaceId: spaceId || '', Steps: [], Version: 0, LastSnapshotId: null, Links: {} };
+    }
+    
+    // Then fetch the process using the RunbookProcessId
     const response = await client.get<RunbookProcess>(
-      spacePath(spaceId, `/runbooks/${sanitizePathSegment(runbookId)}/runbookProcess`)
+      spacePath(spaceId, `/runbookProcesses/${sanitizePathSegment(runbookProcessId)}`)
+    );
+    return response.data;
+  });
+};
+
+/**
+ * Gets the runbook process (steps) by process ID directly
+ */
+export const getRunbookProcessById = async (processId: string): Promise<RunbookProcess> => {
+  return withRetry(async () => {
+    const { client, spaceId } = await createClient();
+    const response = await client.get<RunbookProcess>(
+      spacePath(spaceId, `/runbookProcesses/${sanitizePathSegment(processId)}`)
     );
     return response.data;
   });

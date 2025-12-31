@@ -25,7 +25,7 @@ import {
   useEnvironments,
   useRunbookSnapshots,
   useRunbookRuns,
-  useRunbookProcess,
+  useRunbookProcessById,
   useCreateRunbookRun,
 } from '../../src/hooks/useOctopusQuery';
 import { Card } from '../../src/components/ui/Card';
@@ -52,7 +52,8 @@ export default function RunbookDetailScreen() {
   const { data: environments } = useEnvironments();
   const { data: snapshotsData, isLoading: snapshotsLoading } = useRunbookSnapshots(id!, { take: 10 });
   const { data: runsData, isLoading: runsLoading, refetch: refetchRuns } = useRunbookRuns({ runbookId: id!, take: 20 });
-  const { data: runbookProcess } = useRunbookProcess(id!);
+  // Use the RunbookProcessId from the runbook for efficient process fetching
+  const { data: runbookProcess } = useRunbookProcessById(runbook?.RunbookProcessId);
   
   const createRunbookRun = useCreateRunbookRun();
 
@@ -254,25 +255,6 @@ export default function RunbookDetailScreen() {
             />
           </Card>
 
-          {/* Available Environments */}
-          <Card>
-            <Text style={styles.cardTitle}>
-              Available Environments ({availableEnvironments.length})
-            </Text>
-            {availableEnvironments.length > 0 ? (
-              <View style={styles.tagContainer}>
-                {availableEnvironments.map((env) => (
-                  <View key={env.Id} style={styles.environmentTag}>
-                    <Ionicons name="globe-outline" size={14} color={colors.brand.primary} />
-                    <Text style={styles.environmentTagText}>{env.Name}</Text>
-                  </View>
-                ))}
-              </View>
-            ) : (
-              <Text style={styles.emptyText}>No environments available</Text>
-            )}
-          </Card>
-
           {/* Recent Runs */}
           <Card>
             <Text style={styles.cardTitle}>Recent Runs ({runs.length})</Text>
@@ -461,30 +443,6 @@ const styles = StyleSheet.create({
     color: colors.text.primary,
     fontSize: fontSize.sm,
     fontWeight: '500',
-  },
-  tagContainer: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: spacing.sm,
-  },
-  environmentTag: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.xs,
-    backgroundColor: colors.interactive.focus,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.xs,
-    borderRadius: borderRadius.sm,
-  },
-  environmentTagText: {
-    color: colors.brand.primary,
-    fontSize: fontSize.sm,
-    fontWeight: '500',
-  },
-  emptyText: {
-    color: colors.text.tertiary,
-    fontSize: fontSize.sm,
-    fontStyle: 'italic',
   },
   runsList: {
     gap: spacing.xs,
