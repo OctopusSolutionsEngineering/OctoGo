@@ -13,6 +13,7 @@ import { HeaderBrand } from '../../src/components/HeaderBrand';
 import { useAuth } from '../../src/context/AuthContext';
 import { useColors } from '../../src/context/ThemeContext';
 import { DrawerProvider, useDrawer } from '../../src/context/DrawerContext';
+import { useTabCustomization } from '../../src/context/TabCustomizationContext';
 import { fontSize, spacing } from '../../src/theme/spacing';
 
 type IconName = keyof typeof Ionicons.glyphMap;
@@ -29,6 +30,7 @@ function TabsLayoutContent() {
   const { isEnterprise } = useAuth();
   const colors = useColors();
   const { isDrawerOpen, openDrawer, closeDrawer } = useDrawer();
+  const { selectedTabs } = useTabCustomization();
   
   const handleOpenDrawer = useCallback(() => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -126,9 +128,11 @@ function TabsLayoutContent() {
         tabBarHideOnKeyboard: true,
       }}
     >
+      {/* Dashboard - always needs to be defined for routing */}
       <Tabs.Screen
         name="index"
         options={{
+          href: selectedTabs.some(t => t.id === 'dashboard') ? '/' : null,
           title: 'Dashboard',
           tabBarIcon: ({ focused, color }) => (
             <TabIcon 
@@ -140,9 +144,12 @@ function TabsLayoutContent() {
           ),
         }}
       />
+      
+      {/* Projects */}
       <Tabs.Screen
         name="projects"
         options={{
+          href: selectedTabs.some(t => t.id === 'projects') ? '/projects' : null,
           title: 'Projects',
           tabBarIcon: ({ focused, color }) => (
             <TabIcon 
@@ -154,9 +161,12 @@ function TabsLayoutContent() {
           ),
         }}
       />
+      
+      {/* Deployments/Tasks */}
       <Tabs.Screen
         name="deployments"
         options={{
+          href: selectedTabs.some(t => t.id === 'deployments') ? '/deployments' : null,
           title: 'Tasks',
           tabBarIcon: ({ focused, color }) => (
             <TabIcon 
@@ -168,9 +178,12 @@ function TabsLayoutContent() {
           ),
         }}
       />
+      
+      {/* Search */}
       <Tabs.Screen
         name="search"
         options={{
+          href: selectedTabs.some(t => t.id === 'search') ? '/search' : null,
           title: 'Search',
           tabBarIcon: ({ focused, color }) => (
             <TabIcon 
@@ -182,23 +195,80 @@ function TabsLayoutContent() {
           ),
         }}
       />
+      
+      {/* Runbooks */}
       <Tabs.Screen
         name="runbooks"
         options={{
-          href: null, // Accessible via drawer menu
+          href: selectedTabs.some(t => t.id === 'runbooks') ? '/runbooks' : null,
+          title: 'Runbooks',
+          tabBarIcon: ({ focused, color }) => (
+            <TabIcon 
+              name="book-outline" 
+              focusedName="book" 
+              focused={focused} 
+              color={color}
+            />
+          ),
         }}
       />
+      
+      {/* Targets */}
+      <Tabs.Screen
+        name="targets"
+        options={{
+          href: selectedTabs.some(t => t.id === 'targets') ? '/targets' : null,
+          title: 'Targets',
+          tabBarIcon: ({ focused, color }) => (
+            <TabIcon 
+              name="server-outline" 
+              focusedName="server" 
+              focused={focused} 
+              color={color}
+            />
+          ),
+        }}
+      />
+      
+      {/* Environments */}
+      <Tabs.Screen
+        name="environments"
+        options={{
+          href: selectedTabs.some(t => t.id === 'environments') ? '/environments' : null,
+          title: 'Environments',
+          tabBarIcon: ({ focused, color }) => (
+            <TabIcon 
+              name="layers-outline" 
+              focusedName="layers" 
+              focused={focused} 
+              color={color}
+            />
+          ),
+        }}
+      />
+      
+      {/* Events/Audit Log */}
       <Tabs.Screen
         name="events"
         options={{
-          href: null, // Accessible via drawer menu
+          href: selectedTabs.some(t => t.id === 'events') ? '/events' : null,
+          title: 'Audit Log',
+          tabBarIcon: ({ focused, color }) => (
+            <TabIcon 
+              name="time-outline" 
+              focusedName="time" 
+              focused={focused} 
+              color={color}
+            />
+          ),
         }}
       />
+      
+      {/* Insights */}
       <Tabs.Screen
         name="insights"
         options={{
-          // Only show Insights tab for Enterprise/Unlimited licenses
-          href: isEnterprise ? '/insights' : null,
+          href: (isEnterprise && selectedTabs.some(t => t.id === 'insights')) ? '/insights' : null,
           title: 'Insights',
           tabBarIcon: ({ focused, color }) => (
             <TabIcon 
@@ -208,18 +278,6 @@ function TabsLayoutContent() {
               color={color}
             />
           ),
-        }}
-      />
-      <Tabs.Screen
-        name="environments"
-        options={{
-          href: null, // Accessible via drawer menu
-        }}
-      />
-      <Tabs.Screen
-        name="targets"
-        options={{
-          href: null, // Accessible via drawer menu and home screen
         }}
       />
       <Tabs.Screen

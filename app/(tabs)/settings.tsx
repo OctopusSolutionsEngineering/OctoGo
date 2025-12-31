@@ -250,21 +250,16 @@ export default function SettingsScreen() {
               ))}
             </View>
           </Card>
-        </View>
-
-        {/* Quick Actions */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Quick Actions</Text>
           
           <Pressable 
             style={styles.linkRow}
             onPress={() => {
               Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-              router.push('/events');
+              router.push('/customize-tabs');
             }}
           >
-            <Text style={styles.linkIcon}>📋</Text>
-            <Text style={styles.linkText}>View Audit Log</Text>
+            <Ionicons name="options-outline" size={22} color={colors.octopus.primary} style={{ marginRight: spacing.sm }} />
+            <Text style={styles.linkText}>Customise Navigation Tabs</Text>
             <Text style={styles.linkChevron}>›</Text>
           </Pressable>
         </View>
@@ -277,7 +272,7 @@ export default function SettingsScreen() {
             style={styles.linkRow}
             onPress={openDocs}
           >
-            <Text style={styles.linkIcon}>📚</Text>
+            <Ionicons name="document-text-outline" size={22} color={colors.octopus.primary} style={{ marginRight: spacing.sm }} />
             <Text style={styles.linkText}>API Documentation</Text>
             <Text style={styles.linkChevron}>›</Text>
           </Pressable>
@@ -286,7 +281,7 @@ export default function SettingsScreen() {
             style={styles.linkRow}
             onPress={openGitHub}
           >
-            <Text style={styles.linkIcon}>💻</Text>
+            <Ionicons name="logo-github" size={22} color={colors.octopus.primary} style={{ marginRight: spacing.sm }} />
             <Text style={styles.linkText}>Octopus Deploy GitHub</Text>
             <Text style={styles.linkChevron}>›</Text>
           </Pressable>
@@ -322,7 +317,7 @@ export default function SettingsScreen() {
 
         {/* Security Notice */}
         <View style={styles.securityNotice}>
-          <Text style={styles.securityIcon}>🔒</Text>
+          <Ionicons name="shield-checkmark" size={20} color={colors.status.info} style={{ marginRight: spacing.xs }} />
           <Text style={styles.securityText}>
             Your API key is stored securely using encrypted device storage and is never transmitted to third parties.
           </Text>
@@ -421,13 +416,10 @@ const styles = StyleSheet.create({
     backgroundColor: staticColors.background.secondary,
     padding: spacing.md,
     borderRadius: borderRadius.lg,
+    marginTop: spacing.md,
     marginBottom: spacing.sm,
     borderWidth: 1,
     borderColor: staticColors.border.muted,
-  },
-  linkIcon: {
-    fontSize: 20,
-    marginRight: spacing.md,
   },
   linkText: {
     color: staticColors.text.primary,
@@ -465,9 +457,6 @@ const styles = StyleSheet.create({
     borderRadius: borderRadius.md,
     gap: spacing.sm,
     marginTop: spacing.md,
-  },
-  securityIcon: {
-    fontSize: fontSize.lg,
   },
   securityText: {
     flex: 1,

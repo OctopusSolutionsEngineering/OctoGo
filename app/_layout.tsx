@@ -24,6 +24,7 @@ import {
 import { AuthProvider, useAuth } from '../src/context/AuthContext';
 import { FavoritesProvider } from '../src/context/FavoritesContext';
 import { ThemeProvider, useTheme } from '../src/context/ThemeContext';
+import { TabCustomizationProvider } from '../src/context/TabCustomizationContext';
 import { LoadingScreen } from '../src/components/ui/LoadingScreen';
 import { spacing } from '../src/theme/spacing';
 
@@ -107,6 +108,7 @@ function ThemedApp() {
         >
           <Stack.Screen name="(auth)" options={{ headerShown: false }} />
           <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+          <Stack.Screen name="customize-tabs" options={{ headerShown: false }} />
           <Stack.Screen name="release/[id]" options={{ title: 'Release' }} />
           <Stack.Screen name="release/create" options={{ title: 'Create Release' }} />
           <Stack.Screen name="release/[id]/deploy" options={{ title: 'Deploy Release' }} />
@@ -182,7 +184,9 @@ export default function RootLayout() {
         <ThemeProvider>
           <AuthProvider>
             <FavoritesProvider>
-              <ThemedApp />
+              <TabCustomizationProvider>
+                <ThemedApp />
+              </TabCustomizationProvider>
             </FavoritesProvider>
           </AuthProvider>
         </ThemeProvider>
