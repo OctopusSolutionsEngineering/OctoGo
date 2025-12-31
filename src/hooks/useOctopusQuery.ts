@@ -700,17 +700,18 @@ export const useProjectProgression = (projectId: string) => {
 // ============================================================================
 
 /**
- * Gets the combined Kubernetes live status for a deployment
+ * Gets the Kubernetes live status for a project/environment
  * Returns null if observability is not available (not a K8s deployment)
  */
 export const useKubernetesLiveStatus = (
-  deploymentId: string | null | undefined,
-  options?: { enabled?: boolean; refetchInterval?: number }
+  projectId: string | null | undefined,
+  environmentId: string | null | undefined,
+  options?: { enabled?: boolean; refetchInterval?: number; tenantId?: string }
 ) => {
   return useQuery<KubernetesLiveStatus | null, OctopusApiError>({
-    queryKey: queryKeys.kubernetesLiveStatus(deploymentId || ''),
-    queryFn: () => getKubernetesLiveStatus(deploymentId!),
-    enabled: options?.enabled !== false && !!deploymentId,
+    queryKey: queryKeys.kubernetesLiveStatus(`${projectId}-${environmentId}-${options?.tenantId || ''}`),
+    queryFn: () => getKubernetesLiveStatus(projectId!, environmentId!, options?.tenantId),
+    enabled: options?.enabled !== false && !!projectId && !!environmentId,
     staleTime: 15 * 1000, // 15 seconds - live status changes frequently
     refetchInterval: options?.refetchInterval ?? 30 * 1000, // Refetch every 30 seconds
     retry: 1, // Only retry once since 404 means not available
@@ -718,42 +719,22 @@ export const useKubernetesLiveStatus = (
 };
 
 /**
- * Gets Kubernetes application status for a deployment
+ * Gets Kubernetes application status for a project/environment
  * Returns null if observability is not available
  */
 export const useKubernetesAppStatus = (
-  deploymentId: string | null | undefined,
+  projectId: string | null | undefined,
+  environmentId: string | null | undefined,
   options?: { enabled?: boolean; refetchInterval?: number }
 ) => {
   return useQuery<ObservabilityApplicationStatus | null, OctopusApiError>({
-    queryKey: queryKeys.observabilityAppStatus(deploymentId || ''),
-    queryFn: () => getObservabilityApplicationStatus(deploymentId!),
-    enabled: options?.enabled !== false && !!deploymentId,
+    queryKey: queryKeys.observabilityAppStatus(`${projectId}-${environmentId}`),
+    queryFn: () => getObservabilityApplicationStatus(''), // Legacy - returns null
+    enabled: options?.enabled !== false && !!projectId && !!environmentId,
     staleTime: 15 * 1000,
     refetchInterval: options?.refetchInterval ?? 30 * 1000,
     retry: 1,
   });
-};
-
-/**
- * Hook to fetch live status for multiple deployments
- * Useful for showing live status across environments on project dashboard
- */
-export const useMultipleKubernetesLiveStatus = (
-  deploymentIds: (string | null | undefined)[],
-  options?: { enabled?: boolean; refetchInterval?: number }
-) => {
-  const queries = deploymentIds.filter(Boolean).map(deploymentId => ({
-    queryKey: queryKeys.kubernetesLiveStatus(deploymentId!),
-    queryFn: () => getKubernetesLiveStatus(deploymentId!),
-    enabled: options?.enabled !== false && !!deploymentId,
-    staleTime: 15 * 1000,
-    refetchInterval: options?.refetchInterval ?? 30 * 1000,
-    retry: 1,
-  }));
-  
-  // Use useQueries for parallel fetching
-  return queries;
 };
 
 // ============================================================================

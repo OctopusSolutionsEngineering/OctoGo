@@ -109,7 +109,7 @@ export function ProcessStepsView({
   if (!steps?.length) {
     return (
       <EmptyState
-        icon="🔧"
+        ionicon="construct-outline"
         title={emptyTitle}
         message={emptyMessage}
       />
@@ -441,7 +441,6 @@ function ActionDetails({ action, getEnvironmentName }: ActionDetailsProps) {
 
 const styles = StyleSheet.create({
   processList: {
-    padding: spacing.md,
     gap: spacing.sm,
   },
   processStep: {
@@ -449,7 +448,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: colors.background.tertiary,
     borderRadius: borderRadius.md,
-    padding: spacing.md,
+    padding: 12,
   },
   processStepPressed: {
     opacity: 0.7,
@@ -696,10 +695,10 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
   excludeTag: {
-    backgroundColor: colors.status.dangerDim,
+    backgroundColor: colors.status.errorDim,
   },
   excludeTagText: {
-    color: colors.status.danger,
+    color: colors.status.error,
   },
 
   // Packages

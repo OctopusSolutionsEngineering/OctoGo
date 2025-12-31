@@ -45,7 +45,7 @@ import { EmptyState } from '../../src/components/ui/EmptyState';
 import { ProcessStepsView } from '../../src/components/ProcessStepsView';
 import { colors } from '../../src/theme/colors';
 import { fontSize, spacing, borderRadius } from '../../src/theme/spacing';
-import type { Release, DashboardEnvironment, DashboardItem, TaskState, Variable, Deployment, KubernetesApplicationStatus, KubernetesLiveStatus, Lifecycle, Phase } from '../../src/lib/api/types';
+import type { Release, DashboardEnvironment, DashboardItem, TaskState, Variable, Deployment, KubernetesApplicationStatus, KubernetesObjectStatus, KubernetesLiveStatus, Lifecycle, Phase } from '../../src/lib/api/types';
 
 // Section type for accordion navigation
 type SectionId = 'dashboard' | 'process' | 'runbooks' | 'variables' | 'channels';
@@ -57,14 +57,15 @@ export default function ProjectDetailScreen() {
   const { isFavorite, toggleFavorite } = useFavorites();
   const [expandedSections, setExpandedSections] = useState<Set<SectionId>>(new Set(['dashboard']));
   const [selectedRelease, setSelectedRelease] = useState<Release | null>(null);
-  const [showK8sLiveStatus, setShowK8sLiveStatus] = useState(true); // Toggle for K8s live status
-  
   // Lifecycle modal state
   const [showLifecycleModal, setShowLifecycleModal] = useState(false);
   
   // Variables state - must be declared before any early returns to satisfy Rules of Hooks
   const [showAllVariables, setShowAllVariables] = useState(false);
   const [selectedVariable, setSelectedVariable] = useState<Variable | null>(null);
+  
+  // Kubernetes status modal state
+  const [selectedK8sStatus, setSelectedK8sStatus] = useState<{ envName: string; status: KubernetesLiveStatus } | null>(null);
   
   const isProjectFavorite = isFavorite(id!);
   
@@ -141,41 +142,49 @@ export default function ProjectDetailScreen() {
     return status;
   }, [projectSummary, id]);
 
-  // Get current deployment IDs for K8s live status queries
-  const currentDeploymentIds = useMemo(() => {
-    const ids: { envId: string; deploymentId: string }[] = [];
+  // Get environment IDs that have deployments for K8s live status queries
+  const environmentsWithDeployments = useMemo(() => {
+    const envIds: string[] = [];
     liveStatus.forEach((item, envId) => {
       if (item.DeploymentId) {
-        ids.push({ envId, deploymentId: item.DeploymentId });
+        envIds.push(envId);
       }
     });
-    return ids;
+    return envIds;
   }, [liveStatus]);
 
-  // Query Kubernetes live status for the first current deployment (to check if K8s is available)
-  // We only query the first one initially to avoid too many parallel requests
-  const firstDeploymentId = currentDeploymentIds[0]?.deploymentId;
-  const { data: firstK8sStatus, isLoading: k8sStatusLoading } = useKubernetesLiveStatus(
-    firstDeploymentId,
-    { enabled: showK8sLiveStatus && !!firstDeploymentId }
+  // Query Kubernetes live status for each environment (up to 5)
+  const env1 = environmentsWithDeployments[0];
+  const env2 = environmentsWithDeployments[1];
+  const env3 = environmentsWithDeployments[2];
+  const env4 = environmentsWithDeployments[3];
+  const env5 = environmentsWithDeployments[4];
+
+  const { data: k8sStatus1, isLoading: k8sStatusLoading } = useKubernetesLiveStatus(
+    id,
+    env1,
+    { enabled: !!env1 }
   );
 
   // Track if this project has K8s live status available
-  const hasK8sLiveStatus = firstK8sStatus?.IsAvailable === true;
+  const hasK8sLiveStatus = k8sStatus1?.IsAvailable === true;
 
-  // Store all K8s statuses in a map (we'll fetch them lazily)
-  const [k8sStatuses, setK8sStatuses] = useState<Map<string, KubernetesLiveStatus>>(new Map());
+  // Fetch K8s status for remaining environments
+  const { data: k8sStatus2 } = useKubernetesLiveStatus(id, env2, { enabled: hasK8sLiveStatus && !!env2 });
+  const { data: k8sStatus3 } = useKubernetesLiveStatus(id, env3, { enabled: hasK8sLiveStatus && !!env3 });
+  const { data: k8sStatus4 } = useKubernetesLiveStatus(id, env4, { enabled: hasK8sLiveStatus && !!env4 });
+  const { data: k8sStatus5 } = useKubernetesLiveStatus(id, env5, { enabled: hasK8sLiveStatus && !!env5 });
 
-  // Update the first K8s status when it changes
-  React.useEffect(() => {
-    if (firstK8sStatus && firstDeploymentId) {
-      setK8sStatuses(prev => {
-        const next = new Map(prev);
-        next.set(firstDeploymentId, firstK8sStatus);
-        return next;
-      });
-    }
-  }, [firstK8sStatus, firstDeploymentId]);
+  // Build map of all K8s statuses by environment ID
+  const k8sStatusesByEnv = useMemo(() => {
+    const map = new Map<string, KubernetesLiveStatus>();
+    if (k8sStatus1 && env1) map.set(env1, k8sStatus1);
+    if (k8sStatus2 && env2) map.set(env2, k8sStatus2);
+    if (k8sStatus3 && env3) map.set(env3, k8sStatus3);
+    if (k8sStatus4 && env4) map.set(env4, k8sStatus4);
+    if (k8sStatus5 && env5) map.set(env5, k8sStatus5);
+    return map;
+  }, [k8sStatus1, env1, k8sStatus2, env2, k8sStatus3, env3, k8sStatus4, env4, k8sStatus5, env5]);
 
 
   const toggleSection = (section: SectionId) => {
@@ -313,6 +322,35 @@ export default function ProjectDetailScreen() {
     }
   };
 
+  // Object status helpers (for individual K8s resources)
+  const getK8sObjectStatusColor = (status: KubernetesObjectStatus): string => {
+    switch (status) {
+      case 'Healthy': 
+      case 'InSync': return colors.status.success;
+      case 'Progressing': return colors.status.info;
+      case 'Degraded': return colors.status.error;
+      case 'OutOfSync': return colors.status.warning;
+      case 'Missing': return colors.status.error;
+      case 'Suspended': return colors.text.tertiary;
+      case 'Unknown': 
+      default: return colors.text.tertiary;
+    }
+  };
+
+  const getK8sObjectStatusLabel = (status: KubernetesObjectStatus): string => {
+    switch (status) {
+      case 'Healthy': return 'Healthy';
+      case 'InSync': return 'In Sync';
+      case 'Progressing': return 'Progressing';
+      case 'Degraded': return 'Degraded';
+      case 'OutOfSync': return 'Out of Sync';
+      case 'Missing': return 'Missing';
+      case 'Suspended': return 'Suspended';
+      case 'Unknown': 
+      default: return 'Unknown';
+    }
+  };
+
   if (projectLoading && !project) {
     return <LoadingScreen message="Loading project..." />;
   }
@@ -369,35 +407,24 @@ export default function ProjectDetailScreen() {
     </Pressable>
   );
 
-  // Render Live Status Row (current release per environment)
-  const renderLiveStatus = () => {
+  // Render Current Releases Row (current release per environment)
+  const renderCurrentReleases = () => {
     // Determine if we should show K8s status toggle
     const showK8sToggle = hasK8sLiveStatus || k8sStatusLoading;
     
     return (
       <View style={styles.liveStatusSection}>
         <View style={styles.liveStatusHeader}>
-          <Text style={styles.subSectionTitle}>Live Status</Text>
+          <Text style={styles.subSectionTitle}>Current Releases</Text>
           {showK8sToggle && (
-            <Pressable 
-              style={styles.k8sToggle}
-              onPress={() => {
-                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                setShowK8sLiveStatus(!showK8sLiveStatus);
-              }}
-            >
+            <View style={styles.k8sIndicator}>
               <Ionicons 
-                name="logo-docker" 
-                size={14} 
-                color={showK8sLiveStatus ? colors.brand.primary : colors.text.tertiary} 
+                name="git-network-outline" 
+                size={12} 
+                color={colors.brand.primary} 
               />
-              <Text style={[
-                styles.k8sToggleText,
-                showK8sLiveStatus && styles.k8sToggleTextActive
-              ]}>
-                K8s
-              </Text>
-            </Pressable>
+              <Text style={styles.k8sIndicatorText}>K8s Live Status</Text>
+            </View>
           )}
         </View>
         <ScrollView 
@@ -407,11 +434,8 @@ export default function ProjectDetailScreen() {
         >
           {sortedEnvironments.map((env) => {
             const deploymentStatus = liveStatus.get(env.Id);
-            const deploymentId = deploymentStatus?.DeploymentId;
-            const k8sStatus = deploymentId ? k8sStatuses.get(deploymentId) : null;
-            
-            // Show K8s status if toggle is on and status is available
-            const showingK8s = showK8sLiveStatus && k8sStatus?.IsAvailable;
+            const k8sStatus = k8sStatusesByEnv.get(env.Id);
+            const hasK8s = k8sStatus?.IsAvailable;
             
             return (
               <Pressable
@@ -427,69 +451,61 @@ export default function ProjectDetailScreen() {
                 <Text style={styles.envHeader}>{env.Name}</Text>
                 {deploymentStatus ? (
                   <View style={styles.liveStatusContent}>
-                    {showingK8s && k8sStatus ? (
-                      // Kubernetes Live Status
-                      <>
-                        <View style={[
-                          styles.statusIndicator,
-                          styles.k8sStatusIndicator,
-                          { 
-                            borderColor: getK8sStatusColor(k8sStatus.ApplicationStatus),
-                            backgroundColor: getK8sStatusBgColor(k8sStatus.ApplicationStatus)
-                          }
-                        ]}>
-                          <Ionicons 
-                            name={getK8sStatusIcon(k8sStatus.ApplicationStatus) as any} 
-                            size={18} 
-                            color={getK8sStatusColor(k8sStatus.ApplicationStatus)} 
-                          />
-                        </View>
-                        <Text style={styles.liveVersion}>{deploymentStatus.ReleaseVersion}</Text>
-                        <View style={[
-                          styles.k8sStatusBadge,
+                    {/* Deployment status indicator */}
+                    <View style={[
+                      styles.statusIndicator,
+                      { 
+                        borderColor: getStateColor(deploymentStatus.State),
+                        backgroundColor: deploymentStatus.State === 'Executing' || deploymentStatus.State === 'Queued' 
+                          ? getStateBgColor(deploymentStatus.State) 
+                          : 'transparent'
+                      }
+                    ]}>
+                      {(deploymentStatus.State === 'Executing' || deploymentStatus.State === 'Queued') ? (
+                        <Ionicons name="sync" size={18} color={getStateColor(deploymentStatus.State)} />
+                      ) : deploymentStatus.State === 'Success' ? (
+                        <Ionicons name="checkmark" size={18} color={getStateColor(deploymentStatus.State)} />
+                      ) : (
+                        <Ionicons name="close" size={18} color={getStateColor(deploymentStatus.State)} />
+                      )}
+                    </View>
+                    
+                    {/* Version */}
+                    <Text style={styles.liveVersion}>{deploymentStatus.ReleaseVersion}</Text>
+                    
+                    {/* Deploying badge */}
+                    {(deploymentStatus.State === 'Executing' || deploymentStatus.State === 'Queued') && (
+                      <View style={styles.progressingBadge}>
+                        <Ionicons name="flash" size={10} color={colors.status.info} />
+                        <Text style={styles.progressText}>Deploying</Text>
+                      </View>
+                    )}
+                    
+                    {/* Kubernetes Live Status badge - tappable */}
+                    {hasK8s && k8sStatus && (
+                      <Pressable
+                        style={[
+                          styles.k8sLiveStatusBadge,
                           { backgroundColor: getK8sStatusBgColor(k8sStatus.ApplicationStatus) }
+                        ]}
+                        onPress={(e) => {
+                          e.stopPropagation();
+                          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                          setSelectedK8sStatus({ envName: env.Name, status: k8sStatus });
+                        }}
+                      >
+                        <Ionicons 
+                          name="git-network-outline" 
+                          size={10} 
+                          color={getK8sStatusColor(k8sStatus.ApplicationStatus)} 
+                        />
+                        <Text style={[
+                          styles.k8sLiveStatusText,
+                          { color: getK8sStatusColor(k8sStatus.ApplicationStatus) }
                         ]}>
-                          <Text style={[
-                            styles.k8sStatusText,
-                            { color: getK8sStatusColor(k8sStatus.ApplicationStatus) }
-                          ]}>
-                            {getK8sStatusLabel(k8sStatus.ApplicationStatus)}
-                          </Text>
-                        </View>
-                        {k8sStatus.Resources.length > 0 && (
-                          <Text style={styles.k8sResourceCount}>
-                            {k8sStatus.Resources.length} resource{k8sStatus.Resources.length !== 1 ? 's' : ''}
-                          </Text>
-                        )}
-                      </>
-                    ) : (
-                      // Standard deployment status
-                      <>
-                        <View style={[
-                          styles.statusIndicator,
-                          { 
-                            borderColor: getStateColor(deploymentStatus.State),
-                            backgroundColor: deploymentStatus.State === 'Executing' || deploymentStatus.State === 'Queued' 
-                              ? getStateBgColor(deploymentStatus.State) 
-                              : 'transparent'
-                          }
-                        ]}>
-                          {(deploymentStatus.State === 'Executing' || deploymentStatus.State === 'Queued') ? (
-                            <Ionicons name="sync" size={18} color={getStateColor(deploymentStatus.State)} />
-                          ) : deploymentStatus.State === 'Success' ? (
-                            <Ionicons name="checkmark" size={18} color={getStateColor(deploymentStatus.State)} />
-                          ) : (
-                            <Ionicons name="close" size={18} color={getStateColor(deploymentStatus.State)} />
-                          )}
-                        </View>
-                        <Text style={styles.liveVersion}>{deploymentStatus.ReleaseVersion}</Text>
-                        {(deploymentStatus.State === 'Executing' || deploymentStatus.State === 'Queued') && (
-                          <View style={styles.progressingBadge}>
-                            <Ionicons name="flash" size={10} color={colors.status.info} />
-                            <Text style={styles.progressText}>Deploying</Text>
-                          </View>
-                        )}
-                      </>
+                          {getK8sStatusLabel(k8sStatus.ApplicationStatus)}
+                        </Text>
+                      </Pressable>
                     )}
                   </View>
                 ) : (
@@ -939,6 +955,124 @@ export default function ProjectDetailScreen() {
       
       {renderVariableModal()}
       
+      {/* Kubernetes Live Status Modal */}
+      <Modal
+        visible={!!selectedK8sStatus}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setSelectedK8sStatus(null)}
+      >
+        <Pressable 
+          style={styles.lifecycleModalOverlay}
+          onPress={() => setSelectedK8sStatus(null)}
+        >
+          <Pressable 
+            style={styles.lifecycleModalContent}
+            onPress={(e) => e.stopPropagation()}
+          >
+            {/* Handle bar */}
+            <View style={styles.lifecycleModalHandle} />
+            
+            {/* Header */}
+            <View style={styles.lifecycleModalHeader}>
+              <View style={styles.lifecycleModalTitleRow}>
+                <Ionicons name="git-network-outline" size={24} color={colors.brand.primary} />
+                <Text style={styles.lifecycleModalTitle}>
+                  {selectedK8sStatus?.envName} - Live Status
+                </Text>
+              </View>
+              <Pressable 
+                onPress={() => setSelectedK8sStatus(null)}
+                hitSlop={8}
+              >
+                <Ionicons name="close" size={24} color={colors.text.secondary} />
+              </Pressable>
+            </View>
+            
+            {selectedK8sStatus && (
+              <>
+                {/* Overall Status */}
+                <View style={styles.k8sOverallStatus}>
+                  <View style={[
+                    styles.k8sOverallStatusIcon,
+                    { backgroundColor: getK8sStatusBgColor(selectedK8sStatus.status.ApplicationStatus) }
+                  ]}>
+                    <Ionicons 
+                      name={getK8sStatusIcon(selectedK8sStatus.status.ApplicationStatus) as any} 
+                      size={28} 
+                      color={getK8sStatusColor(selectedK8sStatus.status.ApplicationStatus)} 
+                    />
+                  </View>
+                  <View style={styles.k8sOverallStatusText}>
+                    <Text style={[
+                      styles.k8sOverallStatusLabel,
+                      { color: getK8sStatusColor(selectedK8sStatus.status.ApplicationStatus) }
+                    ]}>
+                      {getK8sStatusLabel(selectedK8sStatus.status.ApplicationStatus)}
+                    </Text>
+                    <Text style={styles.k8sOverallStatusSubtitle}>
+                      {selectedK8sStatus.status.Resources.length} resource{selectedK8sStatus.status.Resources.length !== 1 ? 's' : ''}
+                    </Text>
+                  </View>
+                </View>
+                
+                {/* Resources */}
+                <ScrollView 
+                  style={styles.k8sResourcesScroll}
+                  showsVerticalScrollIndicator={true}
+                  contentContainerStyle={styles.k8sResourcesContent}
+                >
+                  <Text style={styles.lifecycleSectionTitle}>Resources</Text>
+                  {selectedK8sStatus.status.Resources.length > 0 ? (
+                    <View style={styles.k8sResourcesList}>
+                      {selectedK8sStatus.status.Resources.map((resource, index) => (
+                        <View key={index} style={styles.k8sResourceItem}>
+                          <View style={styles.k8sResourceHeader}>
+                            <View style={[
+                              styles.k8sResourceStatusDot,
+                              { backgroundColor: getK8sObjectStatusColor(resource.Status) }
+                            ]} />
+                            <Text style={styles.k8sResourceName} numberOfLines={1}>
+                              {resource.Name}
+                            </Text>
+                          </View>
+                          <View style={styles.k8sResourceDetails}>
+                            <Text style={styles.k8sResourceType}>
+                              {resource.Kind}
+                            </Text>
+                            <Text style={[
+                              styles.k8sResourceStatus,
+                              { color: getK8sObjectStatusColor(resource.Status) }
+                            ]}>
+                              {getK8sObjectStatusLabel(resource.Status)}
+                            </Text>
+                          </View>
+                          {resource.Namespace && (
+                            <Text style={styles.k8sResourceNamespace}>
+                              Namespace: {resource.Namespace}
+                            </Text>
+                          )}
+                        </View>
+                      ))}
+                    </View>
+                  ) : (
+                    <Text style={styles.noPhasesText}>No resources found</Text>
+                  )}
+                </ScrollView>
+              </>
+            )}
+            
+            {/* Close Button */}
+            <Pressable 
+              style={styles.lifecycleCloseButton}
+              onPress={() => setSelectedK8sStatus(null)}
+            >
+              <Text style={styles.lifecycleCloseButtonText}>Done</Text>
+            </Pressable>
+          </Pressable>
+        </Pressable>
+      </Modal>
+      
       {/* Lifecycle Modal - Slide up from bottom */}
       <Modal
         visible={showLifecycleModal}
@@ -1162,7 +1296,7 @@ export default function ProjectDetailScreen() {
             <SectionHeader id="dashboard" title="Dashboard" icon="grid-outline" />
             {expandedSections.has('dashboard') && (
               <View style={styles.sectionContent}>
-                {renderLiveStatus()}
+                {renderCurrentReleases()}
                 {renderDeploymentsGrid()}
               </View>
             )}
@@ -1357,22 +1491,20 @@ const styles = StyleSheet.create({
     color: colors.text.secondary,
     fontSize: fontSize.sm,
     fontWeight: '600',
+    marginBottom: spacing.xs,
   },
-  k8sToggle: {
+  k8sIndicator: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
     paddingHorizontal: spacing.sm,
     paddingVertical: spacing.xs,
     borderRadius: borderRadius.full,
-    backgroundColor: colors.background.tertiary,
+    backgroundColor: colors.brand.primary + '15',
   },
-  k8sToggleText: {
+  k8sIndicatorText: {
     fontSize: fontSize.xs,
     fontWeight: '600',
-    color: colors.text.tertiary,
-  },
-  k8sToggleTextActive: {
     color: colors.brand.primary,
   },
   envRow: {
@@ -1401,9 +1533,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: spacing.xs,
   },
-  k8sStatusIndicator: {
-    borderWidth: 0,
-  },
   liveVersion: {
     color: colors.text.primary,
     fontSize: fontSize.md,
@@ -1419,20 +1548,98 @@ const styles = StyleSheet.create({
     fontSize: fontSize.xs,
     color: colors.status.info,
   },
-  k8sStatusBadge: {
+  k8sLiveStatusBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
     paddingHorizontal: spacing.sm,
-    paddingVertical: 2,
+    paddingVertical: 3,
     borderRadius: borderRadius.sm,
     marginTop: 4,
   },
-  k8sStatusText: {
-    fontSize: fontSize.xs,
+  k8sLiveStatusText: {
+    fontSize: 10,
     fontWeight: '600',
   },
-  k8sResourceCount: {
+  // K8s Modal Styles
+  k8sOverallStatus: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    padding: spacing.md,
+    backgroundColor: colors.background.tertiary,
+    borderRadius: borderRadius.lg,
+    marginBottom: spacing.md,
+  },
+  k8sOverallStatusIcon: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  k8sOverallStatusText: {
+    flex: 1,
+  },
+  k8sOverallStatusLabel: {
+    fontSize: fontSize.xl,
+    fontWeight: '700',
+  },
+  k8sOverallStatusSubtitle: {
+    fontSize: fontSize.sm,
+    color: colors.text.secondary,
+    marginTop: 2,
+  },
+  k8sResourcesScroll: {
+    flexGrow: 0,
+    flexShrink: 1,
+  },
+  k8sResourcesContent: {
+    paddingBottom: spacing.md,
+  },
+  k8sResourcesList: {
+    gap: spacing.sm,
+  },
+  k8sResourceItem: {
+    backgroundColor: colors.background.tertiary,
+    borderRadius: borderRadius.md,
+    padding: spacing.md,
+  },
+  k8sResourceHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    marginBottom: spacing.xs,
+  },
+  k8sResourceStatusDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+  k8sResourceName: {
+    flex: 1,
+    fontSize: fontSize.md,
+    fontWeight: '600',
+    color: colors.text.primary,
+  },
+  k8sResourceDetails: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  k8sResourceType: {
+    fontSize: fontSize.sm,
+    color: colors.text.tertiary,
+    fontFamily: 'monospace',
+  },
+  k8sResourceStatus: {
+    fontSize: fontSize.sm,
+    fontWeight: '500',
+  },
+  k8sResourceNamespace: {
     fontSize: fontSize.xs,
     color: colors.text.tertiary,
-    marginTop: 2,
+    marginTop: spacing.xs,
   },
   noDeployment: {
     paddingVertical: spacing.md,
@@ -1447,6 +1654,7 @@ const styles = StyleSheet.create({
     fontSize: fontSize.xs,
     textAlign: 'center',
     marginBottom: spacing.sm,
+    marginTop: spacing.sm,
   },
   loadingText: {
     color: colors.text.tertiary,

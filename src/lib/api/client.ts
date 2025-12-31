@@ -43,6 +43,9 @@ import type {
   ObservabilityApplicationStatus,
   ObservabilityResources,
   KubernetesLiveStatus,
+  KubernetesResource,
+  KubernetesApplicationStatus,
+  KubernetesObjectStatus,
   KubernetesPodLog,
   KubernetesEvent,
   Tenant,
@@ -1132,91 +1135,123 @@ export const getProjectProgression = async (projectId: string): Promise<any> => 
 // ============================================================================
 
 /**
- * Gets the Kubernetes live application status for a deployment
- * Returns the overall health/sync status of all K8s resources in the deployment
+ * Resource from Kubernetes live status API
  */
-export const getObservabilityApplicationStatus = async (
-  deploymentId: string
-): Promise<ObservabilityApplicationStatus | null> => {
-  return withRetry(async () => {
-    const { client, spaceId } = await createClient();
-    try {
-      const response = await client.get<ObservabilityApplicationStatus>(
-        spacePath(spaceId, `/observability/deployments/${sanitizePathSegment(deploymentId)}/applicationstatus`)
-      );
-      return response.data;
-    } catch (error) {
-      // 404 means observability is not available for this deployment (not a K8s deployment)
-      if (error instanceof OctopusApiError && error.statusCode === 404) {
-        return null;
-      }
-      throw error;
-    }
-  });
-};
+export interface K8sLiveResource {
+  Children?: string[];
+  DesiredResourceId?: string;
+  Group?: string;
+  HealthStatus: string;
+  Kind: string;
+  MachineId?: string;
+  Name: string;
+  Namespace?: string;
+  ResourceId?: string;
+  ResourceSourceId?: string;
+  SourceType?: string;
+  SyncStatus?: string;
+}
 
 /**
- * Gets the Kubernetes resources for a deployment
- * Returns all tracked K8s resources and their individual statuses
+ * Machine status from Kubernetes live status API
  */
-export const getObservabilityResources = async (
-  deploymentId: string
-): Promise<ObservabilityResources | null> => {
-  return withRetry(async () => {
-    const { client, spaceId } = await createClient();
-    try {
-      const response = await client.get<ObservabilityResources>(
-        spacePath(spaceId, `/observability/deployments/${sanitizePathSegment(deploymentId)}/resources`)
-      );
-      return response.data;
-    } catch (error) {
-      // 404 means observability is not available for this deployment
-      if (error instanceof OctopusApiError && error.statusCode === 404) {
-        return null;
-      }
-      throw error;
-    }
-  });
-};
+export interface K8sMachineStatus {
+  MachineId: string;
+  Resources: K8sLiveResource[];
+  Status: string;
+}
 
 /**
- * Gets combined Kubernetes live status for a deployment
- * Combines application status and resources into a single response
+ * Live status response from the Kubernetes observability endpoint
+ */
+export interface KubernetesLiveStatusResponse {
+  MachineStatuses: K8sMachineStatus[];
+}
+
+/**
+ * Gets the Kubernetes live status for a project/environment
+ * Uses the correct endpoint: /projects/{projectId}/environments/{environmentId}/untenanted/livestatus
  */
 export const getKubernetesLiveStatus = async (
-  deploymentId: string
+  projectId: string,
+  environmentId: string,
+  tenantId?: string
 ): Promise<KubernetesLiveStatus | null> => {
   return withRetry(async () => {
     const { client, spaceId } = await createClient();
     try {
-      // Fetch both application status and resources in parallel
-      const [appStatusResponse, resourcesResponse] = await Promise.all([
-        client.get<ObservabilityApplicationStatus>(
-          spacePath(spaceId, `/observability/deployments/${sanitizePathSegment(deploymentId)}/applicationstatus`)
-        ).catch((e) => ({ data: null, error: e })),
-        client.get<ObservabilityResources>(
-          spacePath(spaceId, `/observability/deployments/${sanitizePathSegment(deploymentId)}/resources`)
-        ).catch((e) => ({ data: null, error: e })),
-      ]);
+      // Build the endpoint - tenantId is a query param, not path param
+      const params = new URLSearchParams();
+      if (tenantId) params.append('tenantId', tenantId);
+      
+      const url = `${spacePath(spaceId, `/projects/${sanitizePathSegment(projectId)}/environments/${sanitizePathSegment(environmentId)}/untenanted/livestatus`)}${params.toString() ? `?${params.toString()}` : ''}`;
+      
+      const response = await client.get<KubernetesLiveStatusResponse>(url);
 
-      const appStatus = 'error' in appStatusResponse ? null : appStatusResponse.data;
-      const resources = 'error' in resourcesResponse ? null : resourcesResponse.data;
-
-      // If neither endpoint returns data, observability is not available
-      if (!appStatus && !resources) {
-        return null;
+      const data = response.data;
+      
+      // Aggregate status from all machines
+      const allResources: KubernetesResource[] = [];
+      let overallStatus: KubernetesApplicationStatus = 'Unknown';
+      
+      if (data.MachineStatuses && data.MachineStatuses.length > 0) {
+        // Collect all resources from all machines
+        for (const machine of data.MachineStatuses) {
+          for (const resource of machine.Resources || []) {
+            allResources.push({
+              Id: resource.ResourceId || resource.Name,
+              Name: resource.Name,
+              Namespace: resource.Namespace || '',
+              Kind: resource.Kind,
+              ApiVersion: resource.Group || '',
+              Status: (resource.HealthStatus as KubernetesObjectStatus) || 'Unknown',
+              StatusMessage: resource.SyncStatus || null,
+              CreatedAt: null,
+              UpdatedAt: null,
+              Labels: {},
+              Annotations: {},
+            });
+          }
+          
+          // Determine overall status from machine statuses
+          const machineStatus = machine.Status?.toLowerCase();
+          if (machineStatus === 'healthy' || machineStatus === 'insync') {
+            if (overallStatus === 'Unknown') overallStatus = 'Healthy';
+          } else if (machineStatus === 'progressing') {
+            overallStatus = 'Progressing';
+          } else if (machineStatus === 'degraded' || machineStatus === 'unhealthy') {
+            overallStatus = 'Degraded';
+          } else if (machineStatus === 'outofsync') {
+            overallStatus = 'OutOfSync';
+          }
+        }
+        
+        // If we have resources, determine status from their health
+        if (allResources.length > 0) {
+          const hasDegraded = allResources.some(r => 
+            r.Status === 'Degraded' || r.Status === 'Unknown' || r.Status === 'Missing'
+          );
+          const hasProgressing = allResources.some(r => r.Status === 'Progressing');
+          const allHealthy = allResources.every(r => 
+            r.Status === 'Healthy' || r.Status === 'InSync'
+          );
+          
+          if (allHealthy) overallStatus = 'Healthy';
+          else if (hasDegraded) overallStatus = 'Degraded';
+          else if (hasProgressing) overallStatus = 'Progressing';
+        }
       }
-
+      
       return {
-        DeploymentId: deploymentId,
-        ApplicationStatus: appStatus?.Status || 'Unknown',
-        ApplicationStatusMessage: appStatus?.Message || null,
-        Resources: resources?.Resources || [],
-        LastUpdated: appStatus?.UpdatedAt || resources?.LastUpdated || new Date().toISOString(),
-        IsAvailable: true,
+        DeploymentId: `${projectId}-${environmentId}`,
+        ApplicationStatus: overallStatus,
+        ApplicationStatusMessage: null,
+        Resources: allResources,
+        LastUpdated: new Date().toISOString(),
+        IsAvailable: data.MachineStatuses && data.MachineStatuses.length > 0,
       };
     } catch (error) {
-      // 404 means observability is not available for this deployment
+      // 404 means observability is not available for this project/environment
       if (error instanceof OctopusApiError && error.statusCode === 404) {
         return null;
       }
@@ -1226,49 +1261,77 @@ export const getKubernetesLiveStatus = async (
 };
 
 /**
- * Gets pod logs for a specific resource
+ * Gets Kubernetes resource details for a specific resource
+ */
+export const getKubernetesResourceDetails = async (
+  projectId: string,
+  environmentId: string,
+  sourceId: string,
+  resourceId: string,
+  tenantId?: string
+): Promise<KubernetesResource | null> => {
+  return withRetry(async () => {
+    const { client, spaceId } = await createClient();
+    try {
+      const tenantPath = tenantId 
+        ? `/tenants/${sanitizePathSegment(tenantId)}`
+        : '/untenanted';
+      
+      const response = await client.get<KubernetesResource>(
+        spacePath(spaceId, `/projects/${sanitizePathSegment(projectId)}/environments/${sanitizePathSegment(environmentId)}${tenantPath}/machines/${sanitizePathSegment(sourceId)}/resources/${sanitizePathSegment(resourceId)}`)
+      );
+      return response.data;
+    } catch (error) {
+      if (error instanceof OctopusApiError && error.statusCode === 404) {
+        return null;
+      }
+      throw error;
+    }
+  });
+};
+
+/**
+ * Legacy function for backward compatibility - delegates to new endpoint
+ * @deprecated Use getKubernetesLiveStatus with projectId and environmentId instead
+ */
+export const getObservabilityApplicationStatus = async (
+  _deploymentId: string
+): Promise<ObservabilityApplicationStatus | null> => {
+  // This endpoint doesn't exist - return null
+  return null;
+};
+
+/**
+ * Legacy function for backward compatibility
+ * @deprecated Use getKubernetesLiveStatus with projectId and environmentId instead  
+ */
+export const getObservabilityResources = async (
+  _deploymentId: string
+): Promise<ObservabilityResources | null> => {
+  // This endpoint doesn't exist - return null
+  return null;
+};
+
+/**
+ * Gets pod logs for a specific resource (placeholder - needs correct endpoint)
  */
 export const getObservabilityPodLogs = async (
-  deploymentId: string,
-  resourceId: string
+  _deploymentId: string,
+  _resourceId: string
 ): Promise<KubernetesPodLog[] | null> => {
-  return withRetry(async () => {
-    const { client, spaceId } = await createClient();
-    try {
-      const response = await client.get<{ Logs: KubernetesPodLog[] }>(
-        spacePath(spaceId, `/observability/deployments/${sanitizePathSegment(deploymentId)}/resources/${sanitizePathSegment(resourceId)}/logs`)
-      );
-      return response.data.Logs;
-    } catch (error) {
-      if (error instanceof OctopusApiError && error.statusCode === 404) {
-        return null;
-      }
-      throw error;
-    }
-  });
+  // TODO: Implement with correct endpoint when available
+  return null;
 };
 
 /**
- * Gets events for a specific resource
+ * Gets events for a specific resource (placeholder - needs correct endpoint)
  */
 export const getObservabilityEvents = async (
-  deploymentId: string,
-  resourceId: string
+  _deploymentId: string,
+  _resourceId: string
 ): Promise<KubernetesEvent[] | null> => {
-  return withRetry(async () => {
-    const { client, spaceId } = await createClient();
-    try {
-      const response = await client.get<{ Events: KubernetesEvent[] }>(
-        spacePath(spaceId, `/observability/deployments/${sanitizePathSegment(deploymentId)}/resources/${sanitizePathSegment(resourceId)}/events`)
-      );
-      return response.data.Events;
-    } catch (error) {
-      if (error instanceof OctopusApiError && error.statusCode === 404) {
-        return null;
-      }
-      throw error;
-    }
-  });
+  // TODO: Implement with correct endpoint when available
+  return null;
 };
 
 // ============================================================================
