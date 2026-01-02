@@ -37,6 +37,7 @@ import {
   useKubernetesLiveStatus,
   useEnvironments,
   useLifecycle,
+  useTenants,
 } from '../../src/hooks/useOctopusQuery';
 import { Card } from '../../src/components/ui/Card';
 import { ErrorView } from '../../src/components/ui/ErrorView';
@@ -86,6 +87,12 @@ export default function ProjectDetailScreen() {
   const { data: channels } = useProjectChannels(id!);
   const { data: allEnvironments } = useEnvironments();
   const { data: lifecycle, isLoading: lifecycleLoading } = useLifecycle(project?.LifecycleId);
+  
+  // Fetch tenants if project uses tenanted deployments
+  const { data: tenantsData } = useTenants({ 
+    projectId: id,
+    take: 500,
+  });
   
   const createDeployment = useCreateDeployment();
   

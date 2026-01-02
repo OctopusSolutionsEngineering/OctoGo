@@ -280,6 +280,24 @@ function TabsLayoutContent() {
           ),
         }}
       />
+      
+      {/* Tenants */}
+      <Tabs.Screen
+        name="tenants"
+        options={{
+          href: selectedTabs.some(t => t.id === 'tenants') ? '/tenants' : null,
+          title: 'Tenants',
+          tabBarIcon: ({ focused, color }) => (
+            <TabIcon 
+              name="business-outline" 
+              focusedName="business" 
+              focused={focused} 
+              color={color}
+            />
+          ),
+        }}
+      />
+      
       <Tabs.Screen
         name="settings"
         options={{

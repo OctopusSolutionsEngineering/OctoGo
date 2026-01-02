@@ -119,6 +119,7 @@ export const DrawerMenu: React.FC<DrawerMenuProps> = ({ visible, onClose }) => {
         { id: 'runbooks', label: 'Runbooks', icon: 'book-outline', iconFilled: 'book', route: '/runbooks' },
         { id: 'targets', label: 'Targets', icon: 'server-outline', iconFilled: 'server', route: '/targets' },
         { id: 'environments', label: 'Environments', icon: 'layers-outline', iconFilled: 'layers', route: '/environments' },
+        { id: 'tenants', label: 'Tenants', icon: 'business-outline', iconFilled: 'business', route: '/tenants' },
         { id: 'events', label: 'Audit Log', icon: 'time-outline', iconFilled: 'time', route: '/events' },
         ...(isEnterprise ? [{ id: 'insights', label: 'Insights', icon: 'analytics-outline' as keyof typeof Ionicons.glyphMap, iconFilled: 'analytics' as keyof typeof Ionicons.glyphMap, route: '/insights' }] : []),
       ],
