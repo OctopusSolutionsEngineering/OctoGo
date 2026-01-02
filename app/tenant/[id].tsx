@@ -9,10 +9,10 @@ import {
   Text,
   ScrollView,
   Pressable,
-  SafeAreaView,
   RefreshControl,
   StyleSheet,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
