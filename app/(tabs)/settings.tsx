@@ -215,11 +215,11 @@ export default function SettingsScreen() {
           </Card>
         </View>
 
-        {/* Appearance Section */}
+        {/* Appearance Section - Theme toggle temporarily hidden until light mode is fixed */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Appearance</Text>
           
-          <Card>
+          {/* <Card>
             <Text style={[styles.rowLabel, { marginBottom: spacing.sm }]}>Theme</Text>
             <View style={styles.themeButtons}>
               {(['system', 'light', 'dark'] as const).map((themeOption) => (
@@ -249,7 +249,7 @@ export default function SettingsScreen() {
                 </Pressable>
               ))}
             </View>
-          </Card>
+          </Card> */}
           
           <Pressable 
             style={styles.linkRow}

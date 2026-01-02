@@ -207,16 +207,18 @@ interface ThemeProviderProps {
 
 export const ThemeProvider: React.FC<ThemeProviderProps> = ({ children }) => {
   const systemColorScheme = useColorScheme();
-  const [mode, setMode] = useState<ThemeMode>('system');
+  const [mode, setMode] = useState<ThemeMode>('dark'); // Default to dark mode
   const [isLoading, setIsLoading] = useState(true);
 
-  // Calculate if dark mode is active
-  const isDark = mode === 'system' 
-    ? systemColorScheme === 'dark' 
-    : mode === 'dark';
+  // TEMPORARY: Force dark mode until light mode is fully implemented
+  // Calculate if dark mode is active - always return true for now
+  const isDark = true; // Force dark mode
+  // const isDark = mode === 'system' 
+  //   ? systemColorScheme === 'dark' 
+  //   : mode === 'dark';
 
-  // Get the appropriate color palette
-  const colors = useMemo(() => isDark ? darkColors : lightColors, [isDark]);
+  // Get the appropriate color palette - always use dark colors for now
+  const colors = useMemo(() => darkColors, []);
 
   // Load saved theme preference on mount
   useEffect(() => {
@@ -226,11 +228,17 @@ export const ThemeProvider: React.FC<ThemeProviderProps> = ({ children }) => {
   const loadTheme = async () => {
     try {
       const savedMode = await AsyncStorage.getItem(THEME_STORAGE_KEY);
-      if (savedMode && ['light', 'dark', 'system'].includes(savedMode)) {
-        setMode(savedMode as ThemeMode);
+      // Always default to dark mode, ignore saved preference for now
+      if (savedMode && savedMode === 'dark') {
+        setMode('dark');
+      } else {
+        // Force dark mode as default
+        setMode('dark');
+        await AsyncStorage.setItem(THEME_STORAGE_KEY, 'dark');
       }
     } catch (error) {
       console.warn('Failed to load theme preference:', error);
+      setMode('dark'); // Ensure dark mode even on error
     } finally {
       setIsLoading(false);
     }
