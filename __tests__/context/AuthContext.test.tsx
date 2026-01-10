@@ -46,6 +46,12 @@ describe('AuthContext', () => {
     mockSecurity.clearCredentials.mockResolvedValue();
     mockSecurity.storeUserId.mockResolvedValue();
     mockSecurity.updateSpaceId.mockResolvedValue();
+    // Multi-instance support mocks
+    mockSecurity.getInstances.mockResolvedValue([]);
+    mockSecurity.getCurrentInstance.mockResolvedValue(null);
+    mockSecurity.addInstance.mockResolvedValue({ success: true, instanceId: 'instance-1' });
+    mockSecurity.updateInstance.mockResolvedValue();
+    mockSecurity.migrateToMultiInstance.mockResolvedValue();
   });
 
   describe('useAuth hook', () => {

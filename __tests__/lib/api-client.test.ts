@@ -433,18 +433,21 @@ describe('Octopus API Client', () => {
   // ==========================================================================
   describe('getTaskDetails', () => {
     it('should return task with activity logs', async () => {
+      const mockTask = { Id: 'ServerTasks-1', State: 'Success' };
       const mockDetails = {
-        Task: { Id: 'ServerTasks-1', State: 'Success' },
         ActivityLogs: [
           { Id: 'Log-1', Name: 'Step 1', Status: 'Success' },
         ],
+        Progress: { ProgressPercentage: 100, EstimatedTimeRemaining: null },
       };
 
+      // getTaskDetails fetches both task and details in parallel
+      mockAxios.onGet('/api/tasks/ServerTasks-1').reply(200, mockTask);
       mockAxios.onGet('/api/tasks/ServerTasks-1/details').reply(200, mockDetails);
 
       const result = await getTaskDetails('ServerTasks-1');
 
-      expect(result.Task.Id).toBe('ServerTasks-1');
+      expect(result.Id).toBe('ServerTasks-1');
       expect(result.ActivityLogs).toHaveLength(1);
     });
   });
