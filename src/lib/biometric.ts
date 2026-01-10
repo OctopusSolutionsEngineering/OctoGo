@@ -128,9 +128,9 @@ export const authenticateWithBiometrics = async (
     }
     
     return { success: false, error: result.error || 'Authentication failed' };
-  } catch (error: any) {
-    console.error('Biometric authentication error:', error);
-    return { success: false, error: error.message || 'Authentication failed' };
+  } catch (error) {
+    console.error('Biometric authentication error');
+    return { success: false, error: 'Authentication failed' };
   }
 };
 
@@ -184,4 +184,3 @@ export const attemptBiometricAuth = async (): Promise<{
     error: result.error,
   };
 };
-
