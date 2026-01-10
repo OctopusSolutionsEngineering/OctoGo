@@ -278,13 +278,14 @@ const styles = StyleSheet.create({
   content: {
     flexGrow: 1,
     paddingHorizontal: spacing.lg,
-    paddingBottom: spacing.xl,
-    justifyContent: 'center',
-    minHeight: '100%',
+    paddingTop: spacing.lg,
+    paddingBottom: spacing.sm,
+    justifyContent: 'flex-start',
   },
   header: {
     alignItems: 'center',
-    marginBottom: spacing.md,
+    marginTop: spacing.md,
+    marginBottom: spacing.sm,
   },
   logoContainer: {
     width: 88,
