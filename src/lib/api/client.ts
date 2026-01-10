@@ -34,8 +34,6 @@ import type {
   RunbookProcess,
   HomeDocument,
   VariableSet,
-  ObservabilityApplicationStatus,
-  ObservabilityResources,
   KubernetesLiveStatus,
   KubernetesResource,
   KubernetesApplicationStatus,
@@ -768,7 +766,8 @@ export const getMachines = async (options?: {
     if (options?.roles?.length) params.append('roles', options.roles.join(','));
 
     // Use /machines/all/v1 to get full status info for all deployment targets
-    const url = spacePath(spaceId, '/machines/all/v1');
+    const basePath = spacePath(spaceId, '/machines/all/v1');
+    const url = params.toString() ? `${basePath}?${params.toString()}` : basePath;
     const response = await client.get<any>(url);
     
     
@@ -1294,28 +1293,6 @@ export const getKubernetesResourceDetails = async (
       throw error;
     }
   });
-};
-
-/**
- * Legacy function for backward compatibility - delegates to new endpoint
- * @deprecated Use getKubernetesLiveStatus with projectId and environmentId instead
- */
-export const getObservabilityApplicationStatus = async (
-  _deploymentId: string
-): Promise<ObservabilityApplicationStatus | null> => {
-  // This endpoint doesn't exist - return null
-  return null;
-};
-
-/**
- * Legacy function for backward compatibility
- * @deprecated Use getKubernetesLiveStatus with projectId and environmentId instead  
- */
-export const getObservabilityResources = async (
-  _deploymentId: string
-): Promise<ObservabilityResources | null> => {
-  // This endpoint doesn't exist - return null
-  return null;
 };
 
 // ============================================================================

@@ -16,7 +16,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { useDashboard, useProjects, useEnvironments, useTasks } from '../../src/hooks/useOctopusQuery';
+import { useDashboard } from '../../src/hooks/useOctopusQuery';
 import { Card } from '../../src/components/ui/Card';
 import { ErrorView } from '../../src/components/ui/ErrorView';
 import { LoadingScreen } from '../../src/components/ui/LoadingScreen';
@@ -37,12 +37,6 @@ export default function InsightsScreen() {
   const [timeRange, setTimeRange] = useState<TimeRange>('7d');
   
   const { data: dashboard, isLoading: dashboardLoading, error: dashboardError, refetch } = useDashboard();
-  const { data: projectsData } = useProjects({ take: 100 });
-  const { data: _environments } = useEnvironments();
-  const { data: tasksData } = useTasks({ take: 200 });
-
-  const _tasks = tasksData?.Items || [];
-  const _projects = projectsData?.Items || [];
 
   const selectedTimeRange = TIME_RANGES.find(t => t.key === timeRange)!;
 

@@ -47,7 +47,6 @@ import {
   getProjectProgression,
   getChannels,
   getKubernetesLiveStatus,
-  getObservabilityApplicationStatus,
   OctopusApiError,
   getTenants,
   getTenant,
@@ -81,7 +80,6 @@ import type {
   VariableSet,
   Channel,
   KubernetesLiveStatus,
-  ObservabilityApplicationStatus,
   Tenant,
   TagSet,
   ReleaseTemplate,
@@ -189,8 +187,6 @@ export const queryKeys = {
   observability: () => [...queryKeys.all, 'observability'] as const,
   kubernetesLiveStatus: (deploymentId: string) => 
     [...queryKeys.observability(), 'liveStatus', deploymentId] as const,
-  observabilityAppStatus: (deploymentId: string) => 
-    [...queryKeys.observability(), 'appStatus', deploymentId] as const,
 };
 
 // ============================================================================
@@ -715,25 +711,6 @@ export const useKubernetesLiveStatus = (
     staleTime: 15 * 1000, // 15 seconds - live status changes frequently
     refetchInterval: options?.refetchInterval ?? 30 * 1000, // Refetch every 30 seconds
     retry: 1, // Only retry once since 404 means not available
-  });
-};
-
-/**
- * Gets Kubernetes application status for a project/environment
- * Returns null if observability is not available
- */
-export const useKubernetesAppStatus = (
-  projectId: string | null | undefined,
-  environmentId: string | null | undefined,
-  options?: { enabled?: boolean; refetchInterval?: number }
-) => {
-  return useQuery<ObservabilityApplicationStatus | null, OctopusApiError>({
-    queryKey: queryKeys.observabilityAppStatus(`${projectId}-${environmentId}`),
-    queryFn: () => getObservabilityApplicationStatus(''), // Legacy - returns null
-    enabled: options?.enabled !== false && !!projectId && !!environmentId,
-    staleTime: 15 * 1000,
-    refetchInterval: options?.refetchInterval ?? 30 * 1000,
-    retry: 1,
   });
 };
 

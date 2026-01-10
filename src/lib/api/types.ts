@@ -684,25 +684,6 @@ export interface KubernetesLiveStatus {
   IsAvailable: boolean;
 }
 
-/**
- * Response from observability/deployments/{id}/applicationstatus endpoint
- */
-export interface ObservabilityApplicationStatus {
-  DeploymentId: string;
-  Status: KubernetesApplicationStatus;
-  Message: string | null;
-  UpdatedAt: string;
-}
-
-/**
- * Response from observability/deployments/{id}/resources endpoint
- */
-export interface ObservabilityResources {
-  DeploymentId: string;
-  Resources: KubernetesResource[];
-  LastUpdated: string;
-}
-
 // ============================================================================
 // Tenant Types
 // ============================================================================

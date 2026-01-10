@@ -77,10 +77,10 @@ export default function ProjectDetailScreen() {
   
   // Data queries
   const { data: project, isLoading: projectLoading, error: projectError, refetch: refetchProject } = useProject(id!);
-  const { data: releasesData, isLoading: _releasesLoading, refetch: refetchReleases } = useReleases(id!, { take: 15 });
+  const { data: releasesData, refetch: refetchReleases } = useReleases(id!, { take: 15 });
   const { data: projectSummary, isLoading: summaryLoading, refetch: refetchSummary } = useProjectSummary(id!);
   const { data: deploymentsData, refetch: refetchDeployments } = useDeployments({ projectId: id!, take: 100 });
-  const { data: _progression, refetch: refetchProgression } = useProjectProgression(id!);
+  const { refetch: refetchProgression } = useProjectProgression(id!);
   const { data: deploymentProcess } = useDeploymentProcess(id!);
   const { data: runbooks } = useProjectRunbooks(id!);
   const { data: variables } = useProjectVariables(id!);
