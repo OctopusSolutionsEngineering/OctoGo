@@ -1,12 +1,6 @@
 /**
  * Octopus Deploy API Client
  * 
- * Security considerations:
- * - All requests use HTTPS
- * - API key is never logged or exposed in errors
- * - Request/response data is sanitized before logging
- * - Timeout limits prevent DoS scenarios
- * - Rate limiting awareness
  */
 
 import axios, { AxiosInstance, AxiosError } from 'axios';
@@ -46,8 +40,6 @@ import type {
   KubernetesResource,
   KubernetesApplicationStatus,
   KubernetesObjectStatus,
-  KubernetesPodLog,
-  KubernetesEvent,
   Tenant,
   TagSet,
   ReleaseTemplate,
@@ -133,7 +125,8 @@ const createClient = async (): Promise<{ client: AxiosInstance; spaceId: string 
     },
     (error: AxiosError<ApiError>) => {
       if (__DEV__) {
-        console.log(`[API] Error ${error.response?.status || 'network'} from ${error.config?.url}:`, error.response?.data || error.message);
+        const errorMsg = error.response?.data?.ErrorMessage || error.message;
+        console.log(`[API] Error ${error.response?.status || 'network'} from ${error.config?.url}: ${errorMsg}`);
       }
       return Promise.reject(transformError(error));
     }
@@ -1322,28 +1315,6 @@ export const getObservabilityResources = async (
   _deploymentId: string
 ): Promise<ObservabilityResources | null> => {
   // This endpoint doesn't exist - return null
-  return null;
-};
-
-/**
- * Gets pod logs for a specific resource (placeholder - needs correct endpoint)
- */
-export const getObservabilityPodLogs = async (
-  _deploymentId: string,
-  _resourceId: string
-): Promise<KubernetesPodLog[] | null> => {
-  // TODO: Implement with correct endpoint when available
-  return null;
-};
-
-/**
- * Gets events for a specific resource (placeholder - needs correct endpoint)
- */
-export const getObservabilityEvents = async (
-  _deploymentId: string,
-  _resourceId: string
-): Promise<KubernetesEvent[] | null> => {
-  // TODO: Implement with correct endpoint when available
   return null;
 };
 

@@ -703,27 +703,6 @@ export interface ObservabilityResources {
   LastUpdated: string;
 }
 
-/**
- * Pod log entry
- */
-export interface KubernetesPodLog {
-  Timestamp: string;
-  Message: string;
-  ContainerName: string;
-}
-
-/**
- * Kubernetes event
- */
-export interface KubernetesEvent {
-  Type: 'Normal' | 'Warning';
-  Reason: string;
-  Message: string;
-  FirstTimestamp: string;
-  LastTimestamp: string;
-  Count: number;
-}
-
 // ============================================================================
 // Tenant Types
 // ============================================================================
