@@ -897,7 +897,7 @@ export default function ProjectDetailScreen() {
           const isInherited = !channel.LifecycleId;
           const channelLifecycleName = isInherited 
             ? lifecycle?.Name 
-            : lifecycle?.Name; // TODO: Could fetch channel-specific lifecycle if different
+            : lifecycle?.Name;
           
           return (
             <View key={channel.Id} style={styles.channelItem}>
