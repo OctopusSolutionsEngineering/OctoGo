@@ -148,9 +148,8 @@ async function checkForUpdates() {
         ]
       );
     }
-  } catch (error) {
+  } catch {
     // Silently fail - updates are not critical
-    console.log('Error checking for updates:', error);
   }
 }
 
