@@ -12,6 +12,7 @@ import {
   Modal,
   FlatList,
   ActivityIndicator,
+  useWindowDimensions,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
@@ -23,9 +24,13 @@ import type { Space } from '../lib/api/types';
 
 export const SpaceSelector: React.FC = () => {
   const colors = useColors();
+  const { height: screenHeight } = useWindowDimensions();
   const [modalVisible, setModalVisible] = useState(false);
   const { data: spaces, isLoading } = useSpaces();
   const { currentSpace, switchSpace } = useAuth();
+  
+  // Calculate max list height based on screen size (leaving room for header and padding)
+  const maxListHeight = Math.min(screenHeight * 0.7, 600);
 
   const handleOpenModal = useCallback(() => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -90,10 +95,8 @@ export const SpaceSelector: React.FC = () => {
       borderRadius: borderRadius.xl,
       width: '100%',
       maxWidth: 400,
-      maxHeight: '80%',
       borderWidth: 1,
       borderColor: colors.border.muted,
-      overflow: 'hidden',
     },
     modalHeader: {
       flexDirection: 'row',
@@ -118,8 +121,10 @@ export const SpaceSelector: React.FC = () => {
       color: colors.text.secondary,
       fontSize: fontSize.md,
     },
+    listContainer: {
+      maxHeight: maxListHeight,
+    },
     spaceList: {
-      maxHeight: 450,
     },
     spaceListContent: {
       paddingVertical: spacing.sm,
@@ -237,51 +242,53 @@ export const SpaceSelector: React.FC = () => {
                 <Text style={styles.loadingText}>Loading spaces...</Text>
               </View>
             ) : (
-              <FlatList
-                data={spaces}
-                keyExtractor={(item) => item.Id}
-                renderItem={({ item }) => {
-                  const isSelected = currentSpace?.Id === item.Id;
-                  return (
-                    <Pressable
-                      style={({ pressed }) => [
-                        styles.spaceItem,
-                        isSelected && styles.spaceItemSelected,
-                        pressed && styles.spaceItemPressed,
-                      ]}
-                      onPress={() => handleSelectSpace(item)}
-                    >
-                      <View style={styles.spaceItemContent}>
-                        <View style={styles.spaceItemHeader}>
-                          <Text style={styles.spaceItemName}>{item.Name}</Text>
-                          {item.IsDefault && (
-                            <View style={styles.defaultBadge}>
-                              <Text style={styles.defaultBadgeText}>Default</Text>
-                            </View>
+              <View style={styles.listContainer}>
+                <FlatList
+                  data={spaces}
+                  keyExtractor={(item) => item.Id}
+                  renderItem={({ item }) => {
+                    const isSelected = currentSpace?.Id === item.Id;
+                    return (
+                      <Pressable
+                        style={({ pressed }) => [
+                          styles.spaceItem,
+                          isSelected && styles.spaceItemSelected,
+                          pressed && styles.spaceItemPressed,
+                        ]}
+                        onPress={() => handleSelectSpace(item)}
+                      >
+                        <View style={styles.spaceItemContent}>
+                          <View style={styles.spaceItemHeader}>
+                            <Text style={styles.spaceItemName}>{item.Name}</Text>
+                            {item.IsDefault && (
+                              <View style={styles.defaultBadge}>
+                                <Text style={styles.defaultBadgeText}>Default</Text>
+                              </View>
+                            )}
+                          </View>
+                          {item.Description ? (
+                            <Text style={styles.spaceItemDescription} numberOfLines={1}>
+                              {item.Description}
+                            </Text>
+                          ) : (
+                            <Text style={styles.spaceItemId}>{item.Id}</Text>
                           )}
                         </View>
-                        {item.Description ? (
-                          <Text style={styles.spaceItemDescription} numberOfLines={1}>
-                            {item.Description}
-                          </Text>
-                        ) : (
-                          <Text style={styles.spaceItemId}>{item.Id}</Text>
+                        {isSelected && (
+                          <Ionicons name="checkmark-circle" size={24} color={colors.brand.primary} />
                         )}
-                      </View>
-                      {isSelected && (
-                        <Ionicons name="checkmark-circle" size={24} color={colors.brand.primary} />
-                      )}
-                    </Pressable>
-                  );
-                }}
-                ListEmptyComponent={
-                  <View style={styles.emptyContainer}>
-                    <Text style={styles.emptyText}>No spaces available</Text>
-                  </View>
-                }
-                style={styles.spaceList}
-                contentContainerStyle={styles.spaceListContent}
-              />
+                      </Pressable>
+                    );
+                  }}
+                  ListEmptyComponent={
+                    <View style={styles.emptyContainer}>
+                      <Text style={styles.emptyText}>No spaces available</Text>
+                    </View>
+                  }
+                  style={styles.spaceList}
+                  contentContainerStyle={styles.spaceListContent}
+                />
+              </View>
             )}
           </Pressable>
         </Pressable>
