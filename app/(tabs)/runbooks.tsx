@@ -21,6 +21,7 @@ import { StatusBadge } from '../../src/components/ui/StatusBadge';
 import { ErrorView } from '../../src/components/ui/ErrorView';
 import { EmptyState } from '../../src/components/ui/EmptyState';
 import { LoadingScreen } from '../../src/components/ui/LoadingScreen';
+import { PageTitle } from '../../src/components/ui/PageTitle';
 import { colors } from '../../src/theme/colors';
 import { fontSize, spacing, borderRadius } from '../../src/theme/spacing';
 import type { Runbook, RunbookRun } from '../../src/lib/api/types';
@@ -84,8 +85,11 @@ export default function RunbooksScreen() {
       return now.getTime() - created.getTime() < 24 * 60 * 60 * 1000;
     });
     
+    const publishedCount = runbooks.filter(rb => rb.PublishedRunbookSnapshotId !== null).length;
+    
     return {
       totalRunbooks: runbooks.length,
+      publishedCount,
       runsLast24h: recentRuns.length,
     };
   }, [runbooks, runs]);
@@ -112,6 +116,8 @@ export default function RunbooksScreen() {
   };
 
   const renderRunbook = useCallback(({ item }: { item: RunbookWithProject }) => {
+    const isPublished = item.PublishedRunbookSnapshotId !== null;
+    
     return (
       <Card
         onPress={() => handleRunbookPress(item)}
@@ -122,7 +128,14 @@ export default function RunbooksScreen() {
             <Ionicons name="play-circle-outline" size={24} color={colors.brand.primary} />
           </View>
           <View style={styles.runbookInfo}>
-            <Text style={styles.runbookName} numberOfLines={1}>{item.Name}</Text>
+            <View style={styles.runbookNameRow}>
+              <Text style={styles.runbookName} numberOfLines={1}>{item.Name}</Text>
+              {!isPublished && (
+                <View style={styles.draftBadge}>
+                  <Text style={styles.draftBadgeText}>Draft</Text>
+                </View>
+              )}
+            </View>
             <Text style={styles.projectName} numberOfLines={1}>{item.projectName}</Text>
           </View>
           <Text style={styles.chevron}>›</Text>
@@ -169,18 +182,29 @@ export default function RunbooksScreen() {
 
   return (
     <SafeAreaView style={styles.container} edges={['left', 'right']}>
-      {/* Summary banner */}
-      <View style={styles.summaryBanner}>
-        <View style={styles.summaryItem}>
-          <Ionicons name="play-circle" size={24} color={colors.brand.primary} />
-          <Text style={styles.summaryValue}>{stats.totalRunbooks}</Text>
-          <Text style={styles.summaryLabel}>Runbooks</Text>
+      {/* Page Title */}
+      <PageTitle 
+        title="Runbooks" 
+        icon="book"
+      />
+      
+      {/* Stats Row - matching dashboard style */}
+      <View style={styles.statsRow}>
+        <View style={styles.statItem}>
+          <Text style={styles.statItemValue}>{stats.totalRunbooks}</Text>
+          <Text style={styles.statItemLabel}>Total</Text>
         </View>
-        <View style={styles.summaryDivider} />
-        <View style={styles.summaryItem}>
-          <Ionicons name="time" size={24} color={colors.status.info} />
-          <Text style={styles.summaryValue}>{stats.runsLast24h}</Text>
-          <Text style={styles.summaryLabel}>Runs (24h)</Text>
+        <View style={styles.statDivider} />
+        <View style={styles.statItem}>
+          <Text style={[styles.statItemValue, { color: colors.status.success }]}>{stats.publishedCount}</Text>
+          <Text style={styles.statItemLabel}>Published</Text>
+        </View>
+        <View style={styles.statDivider} />
+        <View style={styles.statItem}>
+          <Text style={[styles.statItemValue, stats.runsLast24h === 0 && styles.statItemValueMuted]}>
+            {stats.runsLast24h === 0 ? '—' : stats.runsLast24h}
+          </Text>
+          <Text style={styles.statItemLabel}>{stats.runsLast24h === 0 ? 'Quiet 24h' : 'Runs 24h'}</Text>
         </View>
       </View>
 
@@ -216,33 +240,39 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.background.primary,
   },
-  summaryBanner: {
+  statsRow: {
     flexDirection: 'row',
     backgroundColor: colors.background.secondary,
-    margin: spacing.md,
+    borderRadius: borderRadius.lg,
+    marginHorizontal: spacing.md,
     marginBottom: spacing.sm,
     padding: spacing.md,
-    borderRadius: borderRadius.lg,
     borderWidth: 1,
     borderColor: colors.border.muted,
   },
-  summaryItem: {
+  statItem: {
     flex: 1,
+    flexBasis: 0,
     alignItems: 'center',
-    gap: spacing.xs,
+    paddingVertical: spacing.xs,
   },
-  summaryDivider: {
-    width: 1,
-    backgroundColor: colors.border.default,
-  },
-  summaryValue: {
+  statItemValue: {
     color: colors.text.primary,
-    fontSize: fontSize.xxl,
+    fontSize: fontSize.lg,
     fontWeight: '700',
   },
-  summaryLabel: {
-    color: colors.text.secondary,
+  statItemLabel: {
+    color: colors.text.tertiary,
     fontSize: fontSize.xs,
+    marginTop: 2,
+  },
+  statItemValueMuted: {
+    color: colors.text.tertiary,
+  },
+  statDivider: {
+    width: 1,
+    backgroundColor: colors.border.muted,
+    marginVertical: spacing.xs,
   },
   listContent: {
     padding: spacing.md,
@@ -272,9 +302,26 @@ const styles = StyleSheet.create({
   runbookInfo: {
     flex: 1,
   },
+  runbookNameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+  },
   runbookName: {
     color: colors.text.primary,
     fontSize: fontSize.md,
+    fontWeight: '600',
+    flexShrink: 1,
+  },
+  draftBadge: {
+    backgroundColor: colors.status.warning + '20',
+    paddingHorizontal: spacing.xs,
+    paddingVertical: 2,
+    borderRadius: borderRadius.sm,
+  },
+  draftBadgeText: {
+    color: colors.status.warning,
+    fontSize: fontSize.xs,
     fontWeight: '600',
   },
   projectName: {

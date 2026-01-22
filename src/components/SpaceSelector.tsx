@@ -13,7 +13,9 @@ import {
   FlatList,
   ActivityIndicator,
   useWindowDimensions,
+  Platform,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { useSpaces } from '../hooks/useOctopusQuery';
@@ -25,6 +27,8 @@ import type { Space } from '../lib/api/types';
 export const SpaceSelector: React.FC = () => {
   const colors = useColors();
   const { height: screenHeight } = useWindowDimensions();
+  const insets = useSafeAreaInsets();
+  const bottomInset = Platform.OS === 'android' ? insets.bottom : 0;
   const [modalVisible, setModalVisible] = useState(false);
   const { data: spaces, isLoading } = useSpaces();
   const { currentSpace, switchSpace } = useAuth();
@@ -225,7 +229,7 @@ export const SpaceSelector: React.FC = () => {
           style={styles.modalOverlay}
           onPress={() => setModalVisible(false)}
         >
-          <Pressable style={styles.modalContent} onPress={(e) => e.stopPropagation()}>
+          <Pressable style={[styles.modalContent, { paddingBottom: spacing.lg + bottomInset }]} onPress={(e) => e.stopPropagation()}>
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>Switch Space</Text>
               <Pressable 

@@ -15,9 +15,10 @@ import {
   Alert,
   Image,
   Modal,
+  Platform,
 } from 'react-native';
 import * as Clipboard from 'expo-clipboard';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLocalSearchParams, Stack, useRouter } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import { Ionicons } from '@expo/vector-icons';
@@ -54,6 +55,8 @@ type SectionId = 'dashboard' | 'process' | 'runbooks' | 'variables' | 'channels'
 export default function ProjectDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
+  const insets = useSafeAreaInsets();
+  const bottomInset = Platform.OS === 'android' ? insets.bottom : 0;
   const { currentInstance } = useAuth();
   const { isFavorite, toggleFavorite } = useFavorites();
   const [expandedSections, setExpandedSections] = useState<Set<SectionId>>(new Set(['dashboard']));
@@ -792,7 +795,7 @@ export default function ProjectDetailScreen() {
         style={styles.modalOverlay}
         onPress={() => setSelectedVariable(null)}
       >
-        <Pressable style={styles.modalContent} onPress={(e) => e.stopPropagation()}>
+        <Pressable style={[styles.modalContent, { paddingBottom: spacing.lg + bottomInset }]} onPress={(e) => e.stopPropagation()}>
           <View style={styles.modalHeader}>
             <Text style={styles.modalTitle}>Variable Details</Text>
             <Pressable 

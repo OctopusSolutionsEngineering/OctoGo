@@ -12,10 +12,11 @@ import {
   RefreshControl,
   Alert,
   Pressable,
-  TextInput,
   Modal,
+  Platform,
+  ActivityIndicator,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLocalSearchParams, Stack, useRouter } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import { Ionicons } from '@expo/vector-icons';
@@ -23,6 +24,7 @@ import {
   useRunbook, 
   useProject,
   useEnvironments,
+  useRunbookEnvironments,
   useRunbookSnapshots,
   useRunbookRuns,
   useRunbookProcessById,
@@ -41,15 +43,19 @@ import type { Environment, RunbookSnapshot } from '../../src/lib/api/types';
 export default function RunbookDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
+  const insets = useSafeAreaInsets();
+  
+  // Only apply bottom insets on Android - iOS handles safe area automatically
+  const bottomInset = Platform.OS === 'android' ? insets.bottom : 0;
   
   const [showRunModal, setShowRunModal] = useState(false);
   const [selectedEnvironment, setSelectedEnvironment] = useState<Environment | null>(null);
   const [selectedSnapshot, setSelectedSnapshot] = useState<RunbookSnapshot | null>(null);
-  const [runNotes, setRunNotes] = useState('');
 
   const { data: runbook, isLoading: runbookLoading, error: runbookError, refetch: refetchRunbook } = useRunbook(id!);
   const { data: project } = useProject(runbook?.ProjectId || '');
-  const { data: environments } = useEnvironments();
+  const { data: environments } = useEnvironments(); // For display purposes (env names)
+  const { data: availableEnvironments = [], isLoading: environmentsLoading } = useRunbookEnvironments(runbook?.ProjectId, id);
   const { data: snapshotsData, isLoading: snapshotsLoading } = useRunbookSnapshots(id!, { take: 10 });
   const { data: runsData, isLoading: runsLoading, refetch: refetchRuns } = useRunbookRuns({ runbookId: id!, take: 20 });
   // Use the RunbookProcessId from the runbook for efficient process fetching
@@ -60,19 +66,6 @@ export default function RunbookDetailScreen() {
   const snapshots = snapshotsData?.Items || [];
   const runs = runsData?.Items || [];
   const isLoading = runbookLoading || snapshotsLoading || runsLoading;
-
-  // Filter environments based on runbook settings
-  const availableEnvironments = useMemo(() => {
-    if (!environments || !runbook) return [];
-    
-    if (runbook.EnvironmentScope === 'All') {
-      return environments;
-    } else if (runbook.EnvironmentScope === 'Specified' && runbook.Environments.length > 0) {
-      return environments.filter(e => runbook.Environments.includes(e.Id));
-    }
-    // FromProjectLifecycles would need lifecycle data - for now show all
-    return environments;
-  }, [environments, runbook]);
 
   // Get published snapshot if available
   const publishedSnapshot = useMemo(() => {
@@ -92,7 +85,6 @@ export default function RunbookDetailScreen() {
     }
     setSelectedSnapshot(publishedSnapshot);
     setSelectedEnvironment(null);
-    setRunNotes('');
     setShowRunModal(true);
   }, [publishedSnapshot]);
 
@@ -107,7 +99,6 @@ export default function RunbookDetailScreen() {
         runbookId: runbook.Id,
         runbookSnapshotId: selectedSnapshot.Id,
         environmentId: selectedEnvironment.Id,
-        comments: runNotes || undefined,
       });
       
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
@@ -127,7 +118,7 @@ export default function RunbookDetailScreen() {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
       Alert.alert('Error', error.message || 'Failed to run runbook');
     }
-  }, [runbook, selectedEnvironment, selectedSnapshot, runNotes, createRunbookRun, router, refetchRuns]);
+  }, [runbook, selectedEnvironment, selectedSnapshot, createRunbookRun, router, refetchRuns]);
 
   const getTimeAgo = (dateString: string): string => {
     const date = new Date(dateString);
@@ -297,7 +288,7 @@ export default function RunbookDetailScreen() {
           onRequestClose={() => setShowRunModal(false)}
         >
           <View style={styles.modalOverlay}>
-            <View style={styles.modalContent}>
+            <View style={[styles.modalContent, { paddingBottom: spacing.lg + bottomInset }]}>
               <View style={styles.modalHeader}>
                 <Text style={styles.modalTitle}>Run {runbook.Name}</Text>
                 <Pressable onPress={() => setShowRunModal(false)}>
@@ -306,44 +297,45 @@ export default function RunbookDetailScreen() {
               </View>
 
               <Text style={styles.modalLabel}>Select Environment</Text>
-              <ScrollView style={styles.environmentList} horizontal={false}>
-                {availableEnvironments.map((env) => (
-                  <Pressable
-                    key={env.Id}
-                    style={[
-                      styles.environmentOption,
-                      selectedEnvironment?.Id === env.Id && styles.environmentOptionSelected,
-                    ]}
-                    onPress={() => {
-                      Haptics.selectionAsync();
-                      setSelectedEnvironment(env);
-                    }}
-                  >
-                    <Ionicons 
-                      name={selectedEnvironment?.Id === env.Id ? 'radio-button-on' : 'radio-button-off'} 
-                      size={20} 
-                      color={selectedEnvironment?.Id === env.Id ? colors.brand.primary : colors.text.tertiary} 
-                    />
-                    <Text style={[
-                      styles.environmentOptionText,
-                      selectedEnvironment?.Id === env.Id && styles.environmentOptionTextSelected,
-                    ]}>
-                      {env.Name}
-                    </Text>
-                  </Pressable>
-                ))}
-              </ScrollView>
-
-              <Text style={styles.modalLabel}>Notes (optional)</Text>
-              <TextInput
-                style={styles.notesInput}
-                placeholder="Add notes for this run..."
-                placeholderTextColor={colors.text.tertiary}
-                value={runNotes}
-                onChangeText={setRunNotes}
-                multiline
-                numberOfLines={3}
-              />
+              {environmentsLoading ? (
+                <View style={styles.environmentLoadingContainer}>
+                  <ActivityIndicator size="small" color={colors.brand.primary} />
+                  <Text style={styles.environmentLoadingText}>Loading environments...</Text>
+                </View>
+              ) : availableEnvironments.length === 0 ? (
+                <View style={styles.environmentEmptyContainer}>
+                  <Ionicons name="alert-circle-outline" size={24} color={colors.text.tertiary} />
+                  <Text style={styles.environmentEmptyText}>No environments available for this runbook</Text>
+                </View>
+              ) : (
+                <ScrollView style={styles.environmentList} horizontal={false}>
+                  {availableEnvironments.map((env) => (
+                    <Pressable
+                      key={env.Id}
+                      style={[
+                        styles.environmentOption,
+                        selectedEnvironment?.Id === env.Id && styles.environmentOptionSelected,
+                      ]}
+                      onPress={() => {
+                        Haptics.selectionAsync();
+                        setSelectedEnvironment(env);
+                      }}
+                    >
+                      <Ionicons 
+                        name={selectedEnvironment?.Id === env.Id ? 'radio-button-on' : 'radio-button-off'} 
+                        size={20} 
+                        color={selectedEnvironment?.Id === env.Id ? colors.brand.primary : colors.text.tertiary} 
+                      />
+                      <Text style={[
+                        styles.environmentOptionText,
+                        selectedEnvironment?.Id === env.Id && styles.environmentOptionTextSelected,
+                      ]}>
+                        {env.Name}
+                      </Text>
+                    </Pressable>
+                  ))}
+                </ScrollView>
+              )}
 
               <View style={styles.modalActions}>
                 <Button
@@ -502,6 +494,30 @@ const styles = StyleSheet.create({
   environmentList: {
     maxHeight: 200,
   },
+  environmentLoadingContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.sm,
+    paddingVertical: spacing.lg,
+  },
+  environmentLoadingText: {
+    color: colors.text.secondary,
+    fontSize: fontSize.sm,
+  },
+  environmentEmptyContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.sm,
+    paddingVertical: spacing.lg,
+    backgroundColor: colors.background.tertiary,
+    borderRadius: borderRadius.md,
+  },
+  environmentEmptyText: {
+    color: colors.text.tertiary,
+    fontSize: fontSize.sm,
+  },
   environmentOption: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -521,17 +537,6 @@ const styles = StyleSheet.create({
   environmentOptionTextSelected: {
     color: colors.brand.primary,
     fontWeight: '600',
-  },
-  notesInput: {
-    backgroundColor: colors.background.tertiary,
-    borderRadius: borderRadius.md,
-    padding: spacing.md,
-    color: colors.text.primary,
-    fontSize: fontSize.sm,
-    minHeight: 80,
-    textAlignVertical: 'top',
-    borderWidth: 1,
-    borderColor: colors.border.muted,
   },
   modalActions: {
     flexDirection: 'row',

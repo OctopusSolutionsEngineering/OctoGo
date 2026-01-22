@@ -12,7 +12,9 @@ import {
   Pressable,
   Modal,
   ScrollView,
+  Platform,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../theme/colors';
@@ -33,6 +35,8 @@ export function ProcessStepsView({
   emptyTitle = 'No steps configured',
   emptyMessage = 'Configure your process to add steps',
 }: ProcessStepsViewProps) {
+  const insets = useSafeAreaInsets();
+  const bottomInset = Platform.OS === 'android' ? insets.bottom : 0;
   const [selectedStep, setSelectedStep] = useState<DeploymentStep | null>(null);
   const [selectedAction, setSelectedAction] = useState<DeploymentAction | null>(null);
 
@@ -153,7 +157,7 @@ export function ProcessStepsView({
         onRequestClose={closeModal}
       >
         <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
+          <View style={[styles.modalContent, { paddingBottom: spacing.lg + bottomInset }]}>
             {/* Header */}
             <View style={styles.modalHeader}>
               {selectedAction ? (

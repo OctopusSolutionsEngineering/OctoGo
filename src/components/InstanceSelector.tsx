@@ -14,7 +14,9 @@ import {
   ActivityIndicator,
   Alert,
   TextInput,
+  Platform,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { useRouter } from 'expo-router';
@@ -28,6 +30,8 @@ interface InstanceSelectorProps {
 }
 
 export const InstanceSelector: React.FC<InstanceSelectorProps> = ({ onInstanceSwitch }) => {
+  const insets = useSafeAreaInsets();
+  const bottomInset = Platform.OS === 'android' ? insets.bottom : 0;
   const [modalVisible, setModalVisible] = useState(false);
   const [renameModalVisible, setRenameModalVisible] = useState(false);
   const [selectedInstance, setSelectedInstance] = useState<OctopusInstance | null>(null);
@@ -400,7 +404,7 @@ export const InstanceSelector: React.FC<InstanceSelectorProps> = ({ onInstanceSw
           style={styles.modalOverlay}
           onPress={() => setModalVisible(false)}
         >
-          <Pressable style={styles.modalContent} onPress={(e) => e.stopPropagation()}>
+          <Pressable style={[styles.modalContent, { paddingBottom: spacing.lg + bottomInset }]} onPress={(e) => e.stopPropagation()}>
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>Switch Instance</Text>
               <Pressable 

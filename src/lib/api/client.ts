@@ -1069,6 +1069,19 @@ export const getRunbookProcessById = async (processId: string): Promise<RunbookP
   });
 };
 
+/**
+ * Gets the environments a runbook can be run within, based on its EnvironmentScope
+ */
+export const getRunbookEnvironments = async (projectId: string, runbookId: string): Promise<Environment[]> => {
+  return withRetry(async () => {
+    const { client, spaceId } = await createClient();
+    const response = await client.get<Environment[]>(
+      spacePath(spaceId, `/projects/${sanitizePathSegment(projectId)}/runbooks/${sanitizePathSegment(runbookId)}/environments`)
+    );
+    return response.data || [];
+  });
+};
+
 // ============================================================================
 // Deployment Process
 // ============================================================================

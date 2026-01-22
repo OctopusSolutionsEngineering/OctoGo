@@ -41,6 +41,7 @@ import {
   createRunbookRun,
   getRunbookProcess,
   getRunbookProcessById,
+  getRunbookEnvironments,
   getDeploymentProcess,
   getProjectVariables,
   getProjectSummary,
@@ -590,6 +591,18 @@ export const useRunbookProcessById = (processId: string | null | undefined) => {
     queryFn: () => getRunbookProcessById(processId!),
     enabled: !!processId,
     staleTime: 5 * 60 * 1000, // 5 minutes - process rarely changes
+  });
+};
+
+/**
+ * Fetches the environments a runbook can be run within, based on its EnvironmentScope
+ */
+export const useRunbookEnvironments = (projectId: string | null | undefined, runbookId: string | null | undefined) => {
+  return useQuery<Environment[], OctopusApiError>({
+    queryKey: [...queryKeys.runbooks(), runbookId, 'environments'],
+    queryFn: () => getRunbookEnvironments(projectId!, runbookId!),
+    enabled: !!projectId && !!runbookId,
+    staleTime: 5 * 60 * 1000, // 5 minutes - environment scope rarely changes
   });
 };
 
