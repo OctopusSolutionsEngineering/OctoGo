@@ -20,6 +20,7 @@ import { useMachines, useEnvironments } from '../../src/hooks/useOctopusQuery';
 import { Card } from '../../src/components/ui/Card';
 import { ErrorView } from '../../src/components/ui/ErrorView';
 import { EmptyState } from '../../src/components/ui/EmptyState';
+import { PageTitle } from '../../src/components/ui/PageTitle';
 import { colors } from '../../src/theme/colors';
 import { fontSize, spacing, borderRadius } from '../../src/theme/spacing';
 import type { Machine } from '../../src/lib/api/types';
@@ -292,30 +293,11 @@ export default function TargetsScreen() {
 
   return (
     <SafeAreaView style={styles.container} edges={['left', 'right']}>
-      {/* Summary Stats */}
-      <View style={styles.summaryBanner}>
-        <View style={styles.summaryItem}>
-          <Text style={styles.summaryValue}>{healthStats.total}</Text>
-          <Text style={styles.summaryLabel}>Total Targets</Text>
-        </View>
-        <View style={styles.summaryDivider} />
-        <View style={styles.summaryItem}>
-          <Text style={[styles.summaryValue, { color: colors.healthStatus.Healthy }]}>
-            {healthStats.healthy}
-          </Text>
-          <Text style={styles.summaryLabel}>Healthy</Text>
-        </View>
-        <View style={styles.summaryDivider} />
-        <View style={styles.summaryItem}>
-          <Text style={[
-            styles.summaryValue, 
-            healthStats.unhealthy > 0 && { color: colors.healthStatus.Unhealthy }
-          ]}>
-            {healthStats.unhealthy + healthStats.unavailable}
-          </Text>
-          <Text style={styles.summaryLabel}>Issues</Text>
-        </View>
-      </View>
+      {/* Page Title */}
+      <PageTitle 
+        title="Targets" 
+        icon="server"
+      />
 
       {/* Filter Pills */}
       <View style={styles.filterContainer}>
@@ -391,38 +373,10 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.background.primary,
   },
-  summaryBanner: {
-    flexDirection: 'row',
-    backgroundColor: colors.background.secondary,
-    margin: spacing.md,
-    marginBottom: spacing.sm,
-    padding: spacing.md,
-    borderRadius: borderRadius.lg,
-    borderWidth: 1,
-    borderColor: colors.border.muted,
-  },
-  summaryItem: {
-    flex: 1,
-    alignItems: 'center',
-  },
-  summaryDivider: {
-    width: 1,
-    backgroundColor: colors.border.default,
-  },
-  summaryValue: {
-    color: colors.text.primary,
-    fontSize: fontSize.xxl,
-    fontWeight: '700',
-  },
-  summaryLabel: {
-    color: colors.text.secondary,
-    fontSize: fontSize.xs,
-    marginTop: spacing.xs,
-  },
   filterContainer: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    paddingHorizontal: spacing.md,
+    padding: spacing.md,
     paddingBottom: spacing.sm,
     gap: spacing.xs,
   },
