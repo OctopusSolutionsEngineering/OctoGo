@@ -18,6 +18,7 @@ import { useEnvironments, useMachines } from '../../src/hooks/useOctopusQuery';
 import { Card } from '../../src/components/ui/Card';
 import { ErrorView } from '../../src/components/ui/ErrorView';
 import { EmptyState } from '../../src/components/ui/EmptyState';
+import { PageTitle } from '../../src/components/ui/PageTitle';
 import { colors } from '../../src/theme/colors';
 import { fontSize, spacing, borderRadius } from '../../src/theme/spacing';
 import type { Environment } from '../../src/lib/api/types';
@@ -168,6 +169,12 @@ export default function EnvironmentsScreen() {
 
   return (
     <SafeAreaView style={styles.container} edges={['left', 'right']}>
+      {/* Page Title */}
+      <PageTitle 
+        title="Environments" 
+        icon="layers"
+      />
+
       {/* Summary banner */}
       <View style={styles.summaryBanner}>
         <View style={styles.summaryItem}>
@@ -196,7 +203,7 @@ export default function EnvironmentsScreen() {
         ListEmptyComponent={
           !isLoading ? (
             <EmptyState
-              icon="🌍"
+              ionicon="globe-outline"
               title="No environments found"
               message="Create environments in Octopus Deploy to see them here"
             />

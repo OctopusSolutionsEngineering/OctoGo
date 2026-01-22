@@ -414,10 +414,11 @@ export const getProjectGroups = async (): Promise<ProjectGroup[]> => {
 export const getEnvironments = async (): Promise<Environment[]> => {
   return withRetry(async () => {
     const { client, spaceId } = await createClient();
-    const response = await client.get<PaginatedResponse<Environment>>(
+    // /environments/all returns an array directly, not a paginated response
+    const response = await client.get<Environment[]>(
       spacePath(spaceId, '/environments/all')
     );
-    return response.data?.Items ?? [];
+    return response.data ?? [];
   });
 };
 

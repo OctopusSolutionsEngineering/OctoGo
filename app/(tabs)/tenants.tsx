@@ -22,6 +22,7 @@ import { Card } from '../../src/components/ui/Card';
 import { LoadingScreen } from '../../src/components/ui/LoadingScreen';
 import { ErrorView } from '../../src/components/ui/ErrorView';
 import { EmptyState } from '../../src/components/ui/EmptyState';
+import { PageTitle } from '../../src/components/ui/PageTitle';
 import { colors } from '../../src/theme/colors';
 import { fontSize, spacing, borderRadius } from '../../src/theme/spacing';
 import type { Tenant, TagSet } from '../../src/lib/api/types';
@@ -223,6 +224,12 @@ export default function TenantsScreen() {
 
   return (
     <SafeAreaView style={styles.container} edges={['left', 'right', 'bottom']}>
+      {/* Page Title */}
+      <PageTitle 
+        title="Tenants" 
+        icon="business"
+      />
+
       {/* Search Bar */}
       <View style={styles.searchContainer}>
         <View style={styles.searchBar}>

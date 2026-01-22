@@ -19,6 +19,7 @@ import { useEvents } from '@/src/hooks/useOctopusQuery';
 import { LoadingScreen } from '@/src/components/ui/LoadingScreen';
 import { ErrorView } from '@/src/components/ui/ErrorView';
 import { EmptyState } from '@/src/components/ui/EmptyState';
+import { PageTitle } from '@/src/components/ui/PageTitle';
 import { colors } from '@/src/theme/colors';
 import type { Event } from '@/src/lib/api/types';
 
@@ -270,6 +271,12 @@ export default function EventsScreen() {
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.background.primary }}>
+      {/* Page Title */}
+      <PageTitle 
+        title="Audit Log" 
+        icon="time-outline"
+      />
+
       {/* Header */}
       <View style={{
         paddingHorizontal: 16,

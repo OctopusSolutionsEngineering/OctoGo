@@ -14,6 +14,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, Stack, useRouter } from 'expo-router';
 import * as Haptics from 'expo-haptics';
+import { Ionicons } from '@expo/vector-icons';
 import { useEnvironment, useMachines } from '../../src/hooks/useOctopusQuery';
 import { Card } from '../../src/components/ui/Card';
 import { ErrorView } from '../../src/components/ui/ErrorView';
@@ -26,19 +27,19 @@ import type { Machine } from '../../src/lib/api/types';
 const getHealthIcon = (status: string): string => {
   switch (status) {
     case 'Healthy':
-      return '✅';
+      return 'checkmark-circle';
     case 'HasWarnings':
-      return '⚠️';
+      return 'warning';
     case 'Unhealthy':
-      return '❌';
+      return 'close-circle';
     case 'Unavailable':
-      return '⏸️';
+      return 'pause-circle';
     default:
-      return '❓';
+      return 'help-circle';
   }
 };
 
-const _getHealthColor = (status: string): string => {
+const getHealthColor = (status: string): string => {
   switch (status) {
     case 'Healthy':
       return colors.healthStatus.Healthy;
@@ -53,17 +54,82 @@ const _getHealthColor = (status: string): string => {
   }
 };
 
-const getStatusColor = (status: string): string => {
-  switch (status) {
-    case 'Online':
-      return colors.status.success;
-    case 'Offline':
-      return colors.status.error;
-    case 'Disabled':
-      return colors.text.tertiary;
-    default:
-      return colors.text.secondary;
+const getTargetTypeLabel = (style: string, roles?: string[]): string => {
+  const rolesLower = roles?.map(r => r.toLowerCase()) || [];
+  const hasK8sRole = rolesLower.some(r => 
+    r.includes('k8s') || r.includes('kubernetes') || r.includes('kube')
+  );
+
+  if (style === 'Kubernetes' || style === 'KubernetesTentacle' || hasK8sRole) {
+    return 'Kubernetes';
   }
+  if (style === 'TentaclePassive') {
+    return 'Listening Tentacle';
+  }
+  if (style === 'TentacleActive') {
+    return 'Polling Tentacle';
+  }
+  if (style === 'Ssh') {
+    return 'SSH';
+  }
+  if (style === 'AzureWebApp') {
+    return 'Azure Web App';
+  }
+  if (style === 'AzureCloudService') {
+    return 'Azure Cloud Service';
+  }
+  if (style === 'AzureServiceFabricCluster') {
+    return 'Service Fabric';
+  }
+  if (style === 'StepPackage' || style === 'None' || style === 'CloudRegion') {
+    return 'Cloud Region';
+  }
+  if (style === 'OfflineDrop') {
+    return 'Offline Drop';
+  }
+  return style || 'Cloud Region';
+};
+
+const getCommunicationStyleIcon = (style: string, roles?: string[]): { name: string; color: string } => {
+  const rolesLower = roles?.map(r => r.toLowerCase()) || [];
+  const hasK8sRole = rolesLower.some(r => 
+    r.includes('k8s') || r.includes('kubernetes') || r.includes('kube') || r.includes('aks') || r.includes('eks') || r.includes('gke')
+  );
+  const hasDockerRole = rolesLower.some(r => r.includes('docker') || r.includes('container'));
+  const hasWebRole = rolesLower.some(r => r.includes('web') || r.includes('iis') || r.includes('nginx'));
+  const hasDbRole = rolesLower.some(r => r.includes('sql') || r.includes('database') || r.includes('db'));
+
+  if (style === 'Kubernetes' || style === 'KubernetesTentacle' || hasK8sRole) {
+    return { name: 'cube', color: '#326CE5' };
+  }
+  if (style === 'Ssh') {
+    return { name: 'terminal', color: '#F0652F' };
+  }
+  if (style === 'AzureWebApp') {
+    return { name: 'globe', color: '#0078D4' };
+  }
+  if (style === 'AzureCloudService' || style === 'AzureServiceFabricCluster') {
+    return { name: 'cloud', color: '#0078D4' };
+  }
+  if (style === 'StepPackage') {
+    return { name: 'cloud-outline', color: colors.text.secondary };
+  }
+  if (style === 'OfflineDrop') {
+    return { name: 'folder', color: colors.text.secondary };
+  }
+  if (hasDockerRole) {
+    return { name: 'layers', color: '#2496ED' };
+  }
+  if (hasDbRole) {
+    return { name: 'server', color: '#CC2927' };
+  }
+  if (hasWebRole) {
+    return { name: 'globe', color: colors.brand.primary };
+  }
+  if (style === 'TentaclePassive' || style === 'TentacleActive') {
+    return { name: 'desktop', color: '#00A4EF' };
+  }
+  return { name: 'server', color: colors.text.secondary };
 };
 
 export default function EnvironmentDetailScreen() {
@@ -99,43 +165,50 @@ export default function EnvironmentDetailScreen() {
     };
   }, [machines]);
 
-  const renderMachine = useCallback(({ item }: { item: Machine }) => (
-    <Card style={styles.machineCard} onPress={() => handleMachinePress(item)}>
-      <View style={styles.machineHeader}>
-        <Text style={styles.healthIcon}>{getHealthIcon(item.HealthStatus)}</Text>
-        <View style={styles.machineInfo}>
-          <Text style={styles.machineName}>{item.Name}</Text>
-          <View style={styles.machineStatus}>
-            <View 
-              style={[
-                styles.statusDot,
-                { backgroundColor: getStatusColor(item.Status) }
-              ]} 
+  const renderMachine = useCallback(({ item }: { item: Machine }) => {
+    const roles = item.Roles || [];
+    const endpoint = item.Endpoint || { CommunicationStyle: 'Unknown' };
+    const targetIcon = getCommunicationStyleIcon(endpoint.CommunicationStyle, roles);
+    const targetType = getTargetTypeLabel(endpoint.CommunicationStyle, roles);
+
+    return (
+      <Card style={styles.machineCard} onPress={() => handleMachinePress(item)}>
+        <View style={styles.machineHeader}>
+          <View style={[styles.machineIconContainer, { backgroundColor: targetIcon.color + '20' }]}>
+            <Ionicons 
+              name={targetIcon.name as any} 
+              size={24} 
+              color={targetIcon.color} 
             />
-            <Text style={styles.statusText}>{item.Status}</Text>
           </View>
-        </View>
-        <Text style={styles.chevron}>›</Text>
-      </View>
-      
-      {item.StatusSummary && (
-        <Text style={styles.statusSummary}>{item.StatusSummary}</Text>
-      )}
-      
-      {item.Roles.length > 0 && (
-        <View style={styles.rolesContainer}>
-          {item.Roles.slice(0, 3).map((role, index) => (
-            <View key={index} style={styles.roleBadge}>
-              <Text style={styles.roleText}>{role}</Text>
+          <View style={styles.machineInfo}>
+            <Text style={styles.machineName} numberOfLines={1}>{item.Name}</Text>
+            <View style={styles.machineMetaRow}>
+              <View style={[styles.typeBadge, { backgroundColor: targetIcon.color + '15' }]}>
+                <Text style={[styles.typeBadgeText, { color: targetIcon.color }]}>{targetType}</Text>
+              </View>
+              {roles.length > 0 && (
+                <Text style={styles.roleText} numberOfLines={1}>
+                  {roles[0]}{roles.length > 1 && ` +${roles.length - 1}`}
+                </Text>
+              )}
+              {item.IsDisabled && (
+                <View style={styles.disabledBadge}>
+                  <Text style={styles.disabledText}>Disabled</Text>
+                </View>
+              )}
             </View>
-          ))}
-          {item.Roles.length > 3 && (
-            <Text style={styles.moreRoles}>+{item.Roles.length - 3} more</Text>
-          )}
+          </View>
+          <Ionicons 
+            name={getHealthIcon(item.HealthStatus) as any} 
+            size={22} 
+            color={getHealthColor(item.HealthStatus)} 
+          />
+          <Ionicons name="chevron-forward" size={16} color={colors.text.tertiary} />
         </View>
-      )}
-    </Card>
-  ), [handleMachinePress]);
+      </Card>
+    );
+  }, [handleMachinePress]);
 
   const keyExtractor = useCallback((item: Machine) => item.Id, []);
 
@@ -228,7 +301,7 @@ export default function EnvironmentDetailScreen() {
           ListEmptyComponent={
             !isLoading ? (
               <EmptyState
-                icon="🖥️"
+                ionicon="server-outline"
                 title="No deployment targets"
                 message="Add deployment targets to this environment in Octopus Deploy"
               />
@@ -289,72 +362,59 @@ const styles = StyleSheet.create({
     height: spacing.sm,
   },
   machineCard: {
-    padding: spacing.md,
+    padding: spacing.sm,
   },
   machineHeader: {
     flexDirection: 'row',
     alignItems: 'center',
+    gap: spacing.sm,
   },
-  healthIcon: {
-    fontSize: 24,
-    marginRight: spacing.md,
+  machineIconContainer: {
+    width: 40,
+    height: 40,
+    borderRadius: borderRadius.md,
+    backgroundColor: colors.background.tertiary,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   machineInfo: {
     flex: 1,
+    minWidth: 0,
   },
   machineName: {
     color: colors.text.primary,
     fontSize: fontSize.md,
     fontWeight: '600',
   },
-  machineStatus: {
+  machineMetaRow: {
     flexDirection: 'row',
     alignItems: 'center',
+    gap: spacing.sm,
     marginTop: spacing.xs,
   },
-  statusDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    marginRight: spacing.xs,
-  },
-  statusText: {
-    color: colors.text.secondary,
-    fontSize: fontSize.sm,
-  },
-  statusSummary: {
-    color: colors.text.secondary,
-    fontSize: fontSize.sm,
-    marginTop: spacing.sm,
-    lineHeight: 20,
-  },
-  rolesContainer: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    marginTop: spacing.sm,
-    gap: spacing.xs,
-  },
-  roleBadge: {
-    backgroundColor: colors.background.tertiary,
+  typeBadge: {
     paddingHorizontal: spacing.sm,
     paddingVertical: 2,
     borderRadius: borderRadius.sm,
   },
+  typeBadgeText: {
+    fontSize: fontSize.xs,
+    fontWeight: '600',
+  },
   roleText: {
-    color: colors.text.secondary,
-    fontSize: fontSize.xs,
-  },
-  moreRoles: {
     color: colors.text.tertiary,
     fontSize: fontSize.xs,
-    alignSelf: 'center',
+    maxWidth: 100,
   },
-  chevron: {
-    color: colors.text.tertiary,
-    fontSize: fontSize.xxl,
-    fontWeight: '300',
-    marginLeft: spacing.sm,
+  disabledBadge: {
+    backgroundColor: colors.status.warningDim,
+    paddingHorizontal: spacing.xs,
+    paddingVertical: 1,
+    borderRadius: borderRadius.sm,
+  },
+  disabledText: {
+    color: colors.status.warning,
+    fontSize: fontSize.xs,
+    fontWeight: '500',
   },
 });
-
-
