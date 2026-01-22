@@ -315,8 +315,9 @@ export const getLicenseStatus = async (): Promise<LicenseStatus | null> => {
 export const getSpaces = async (): Promise<Space[]> => {
   return withRetry(async () => {
     const { client } = await createClient();
-    const response = await client.get<PaginatedResponse<Space>>('/api/spaces');
-    return response.data?.Items ?? [];
+    // Use /all endpoint which returns all spaces sorted alphabetically (not paginated)
+    const response = await client.get<Space[]>('/api/spaces/all');
+    return response.data ?? [];
   });
 };
 
