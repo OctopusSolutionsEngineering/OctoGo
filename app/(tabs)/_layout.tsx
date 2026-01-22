@@ -4,7 +4,7 @@
  */
 
 import React, { useCallback } from 'react';
-import { View, Pressable, Text } from 'react-native';
+import { View, Pressable, Text, Platform } from 'react-native';
 import { Tabs, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
@@ -118,9 +118,9 @@ function TabsLayoutContent() {
           backgroundColor: colors.background.secondary,
           borderTopWidth: 1,
           borderTopColor: colors.border.muted,
-          height: 70,
-          paddingTop: spacing.sm,
-          paddingBottom: spacing.sm,
+          height: Platform.OS === 'android' ? 56 : 70,
+          paddingTop: Platform.OS === 'android' ? spacing.xs : spacing.sm,
+          paddingBottom: Platform.OS === 'android' ? spacing.xs : spacing.sm,
         },
         tabBarShowLabel: false,
         tabBarActiveTintColor: colors.brand.primary,

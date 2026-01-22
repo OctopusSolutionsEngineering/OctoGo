@@ -4,11 +4,12 @@
  */
 
 import React, { useEffect, useCallback } from 'react';
-import { View, Pressable, Alert } from 'react-native';
+import { View, Pressable, Alert, Platform } from 'react-native';
 import { Stack, useRouter, useSegments } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import * as SplashScreen from 'expo-splash-screen';
@@ -71,6 +72,10 @@ function AuthGate({ children }: { children: React.ReactNode }) {
 function ThemedApp() {
   const { colors, isDark } = useTheme();
   const router = useRouter();
+  const insets = useSafeAreaInsets();
+  
+  // Only apply bottom insets on Android - iOS handles safe area automatically
+  const bottomInset = Platform.OS === 'android' ? insets.bottom : 0;
   
   const goToSettings = useCallback(() => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -92,7 +97,7 @@ function ThemedApp() {
   );
   
   return (
-    <View style={{ flex: 1, backgroundColor: colors.background.primary }}>
+    <View style={{ flex: 1, backgroundColor: colors.background.primary, paddingBottom: bottomInset }}>
       <StatusBar style={isDark ? 'light' : 'dark'} />
       <AuthGate>
         <Stack
@@ -179,17 +184,19 @@ export default function RootLayout() {
 
   return (
     <GestureHandlerRootView style={{ flex: 1, backgroundColor: '#0D1117' }}>
-      <QueryClientProvider client={queryClient}>
-        <ThemeProvider>
-          <AuthProvider>
-            <FavoritesProvider>
-              <TabCustomizationProvider>
-                <ThemedApp />
-              </TabCustomizationProvider>
-            </FavoritesProvider>
-          </AuthProvider>
-        </ThemeProvider>
-      </QueryClientProvider>
+      <SafeAreaProvider>
+        <QueryClientProvider client={queryClient}>
+          <ThemeProvider>
+            <AuthProvider>
+              <FavoritesProvider>
+                <TabCustomizationProvider>
+                  <ThemedApp />
+                </TabCustomizationProvider>
+              </FavoritesProvider>
+            </AuthProvider>
+          </ThemeProvider>
+        </QueryClientProvider>
+      </SafeAreaProvider>
     </GestureHandlerRootView>
   );
 }
