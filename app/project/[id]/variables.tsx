@@ -477,7 +477,7 @@ export default function VariablesScreen() {
         {/* Variables List */}
         {filteredVariables.length === 0 ? (
           <EmptyState
-            icon="code-slash-outline"
+            ionicon="code-slash-outline"
             title="No Variables Found"
             message={searchText ? `No variables match "${searchText}"` : 'This project has no variables'}
           />
