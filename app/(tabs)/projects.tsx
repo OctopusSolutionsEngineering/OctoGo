@@ -154,13 +154,18 @@ export default function ProjectsScreen() {
     return map;
   }, [projectGroups]);
   
+  const favoriteProjects = useMemo(
+    () => allProjects.filter(p => favorites.includes(p.Id)),
+    [allProjects, favorites]
+  );
+  
   // Filter projects based on mode
   const filteredProjects = useMemo(() => {
     if (filterMode === 'favorites') {
-      return allProjects.filter(p => favorites.includes(p.Id));
+      return favoriteProjects;
     }
     return allProjects;
-  }, [allProjects, filterMode, favorites]);
+  }, [allProjects, filterMode, favoriteProjects]);
 
   // Group projects by project group - with favorites at the top
   const sections = useMemo((): ProjectSection[] => {
@@ -333,7 +338,9 @@ export default function ProjectsScreen() {
               style={styles.sectionChevron}
             />
           )}
-          <Text style={styles.sectionTitle}>{section.title}</Text>
+          <Text style={styles.sectionTitle} numberOfLines={1} ellipsizeMode="tail">
+            {section.title}
+          </Text>
           <View style={styles.sectionBadge}>
             <Text style={styles.sectionBadgeText}>{projectCount}</Text>
           </View>
@@ -414,7 +421,7 @@ export default function ProjectsScreen() {
               color={filterMode === 'favorites' ? colors.white : colors.status.warning} 
             />
             <Text style={[styles.filterTabText, filterMode === 'favorites' && styles.filterTabTextActive]}>
-              Favorites ({favorites.length})
+              Favorites ({favoriteProjects.length})
             </Text>
           </Pressable>
         </View>
@@ -441,8 +448,14 @@ export default function ProjectsScreen() {
           !isLoading ? (
             <EmptyState
               icon="📁"
-              title="No projects found"
-              message={searchText ? 'Try a different search term' : 'Create your first project in Octopus Deploy'}
+              title={filterMode === 'favorites' ? 'No favorites found' : 'No projects found'}
+              message={
+                filterMode === 'favorites'
+                  ? (favorites.length > 0
+                    ? 'Your favorites are not available in this space or not loaded yet.'
+                    : 'Tap the star on a project to add it to favorites.')
+                  : (searchText ? 'Try a different search term' : 'Create your first project in Octopus Deploy')
+              }
             />
           ) : null
         }
@@ -528,6 +541,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     flex: 1,
+    minWidth: 0,
   },
   sectionChevron: {
     marginRight: spacing.xs,
@@ -536,6 +550,8 @@ const styles = StyleSheet.create({
     color: colors.text.primary,
     fontSize: fontSize.md,
     fontWeight: '600',
+    flex: 1,
+    flexShrink: 1,
   },
   sectionBadge: {
     backgroundColor: colors.background.tertiary,
