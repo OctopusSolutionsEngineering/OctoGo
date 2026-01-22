@@ -24,7 +24,7 @@ import { colors } from '../../src/theme/colors';
 import { fontSize, spacing, borderRadius } from '../../src/theme/spacing';
 import type { Machine } from '../../src/lib/api/types';
 
-type HealthFilter = 'All' | 'Healthy' | 'HasWarnings' | 'Unhealthy' | 'Unavailable';
+type HealthFilter = 'All' | 'Healthy' | 'HasWarnings' | 'Issues';
 
 const getHealthColor = (status: string): string => {
   switch (status) {
@@ -172,6 +172,12 @@ export default function TargetsScreen() {
   // Filter machines by health status
   const filteredMachines = useMemo(() => {
     if (healthFilter === 'All') return machines;
+    if (healthFilter === 'Issues') {
+      return machines.filter(m => {
+        const status = m.HealthStatus || 'Unknown';
+        return status === 'Unhealthy' || status === 'Unavailable';
+      });
+    }
     return machines.filter(m => (m.HealthStatus || 'Unknown') === healthFilter);
   }, [machines, healthFilter]);
 
@@ -340,12 +346,12 @@ export default function TargetsScreen() {
           </Text>
         </Pressable>
         <Pressable 
-          style={[styles.filterPill, healthFilter === 'Unhealthy' && styles.filterPillActive]}
-          onPress={() => handleFilterPress('Unhealthy')}
+          style={[styles.filterPill, healthFilter === 'Issues' && styles.filterPillActive]}
+          onPress={() => handleFilterPress('Issues')}
         >
           <View style={[styles.filterDot, { backgroundColor: colors.healthStatus.Unhealthy }]} />
-          <Text style={[styles.filterText, healthFilter === 'Unhealthy' && styles.filterTextActive]}>
-            Unhealthy ({healthStats.unhealthy})
+          <Text style={[styles.filterText, healthFilter === 'Issues' && styles.filterTextActive]}>
+            Issues ({healthStats.unhealthy + healthStats.unavailable})
           </Text>
         </Pressable>
       </View>
@@ -366,7 +372,7 @@ export default function TargetsScreen() {
           !isLoading ? (
             <EmptyState
               icon="🖥️"
-              title={healthFilter === 'All' ? "No deployment targets found" : `No ${healthFilter.toLowerCase()} targets`}
+              title={healthFilter === 'All' ? "No deployment targets found" : healthFilter === 'Issues' ? "No targets with issues" : `No ${healthFilter.toLowerCase()} targets`}
               message={healthFilter === 'All' 
                 ? "Add deployment targets in Octopus Deploy to see them here"
                 : "Try a different filter to see more targets"
