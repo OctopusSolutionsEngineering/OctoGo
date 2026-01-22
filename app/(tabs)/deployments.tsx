@@ -17,6 +17,7 @@ import { useRouter, useFocusEffect } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import { Ionicons } from '@expo/vector-icons';
 import { useTasks, useSpaces } from '../../src/hooks/useOctopusQuery';
+import { useAuth } from '../../src/context/AuthContext';
 import { Card } from '../../src/components/ui/Card';
 import { StatusBadge } from '../../src/components/ui/StatusBadge';
 import { ErrorView } from '../../src/components/ui/ErrorView';
@@ -37,13 +38,15 @@ const FILTER_OPTIONS: { key: FilterState; label: string; states?: string[] }[] =
 
 export default function DeploymentsScreen() {
   const router = useRouter();
+  const { currentSpace } = useAuth();
   const [filter, setFilter] = useState<FilterState>('all');
+  const [showAllSpaces, setShowAllSpaces] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   
   const activeStates = FILTER_OPTIONS.find(f => f.key === filter)?.states;
   
   const { data: tasksData, isLoading, error, refetch } = useTasks({
-    take: 50,
+    take: 100, // Increased to account for client-side space filtering
     states: activeStates,
     name: 'Deploy',
   });
@@ -57,6 +60,18 @@ export default function DeploymentsScreen() {
     });
     return map;
   }, [spaces]);
+  
+  // Filter tasks by current space (unless showing all spaces)
+  // Both status filter (via API) and space filter are applied
+  const filteredTasks = React.useMemo(() => {
+    const allTasks = tasksData?.Items ?? [];
+    // When showing all spaces or no current space, return all tasks
+    if (showAllSpaces || !currentSpace?.Id) {
+      return allTasks;
+    }
+    // Filter to only tasks from the current space
+    return allTasks.filter(task => task.SpaceId === currentSpace.Id);
+  }, [tasksData, showAllSpaces, currentSpace?.Id]);
   
   // Refetch when tab gains focus
   useFocusEffect(
@@ -76,7 +91,7 @@ export default function DeploymentsScreen() {
     }
   }, [refetch]);
   
-  const tasks = tasksData?.Items || [];
+  const tasks = filteredTasks;
 
   const getTimeAgo = (dateString: string): string => {
     const date = new Date(dateString);
@@ -142,7 +157,7 @@ export default function DeploymentsScreen() {
               </View>
             )}
             
-            {spaceName && (
+            {showAllSpaces && spaceName && (
               <View style={styles.spaceTag}>
                 <Ionicons name="layers-outline" size={12} color={colors.text.tertiary} />
                 <Text style={styles.spaceText}>{spaceName}</Text>
@@ -168,7 +183,7 @@ export default function DeploymentsScreen() {
         )}
       </Card>
     );
-  }, [handleTaskPress, spaceLookup]);
+  }, [handleTaskPress, spaceLookup, showAllSpaces]);
 
   const keyExtractor = useCallback((item: Task) => item.Id, []);
 
@@ -189,6 +204,42 @@ export default function DeploymentsScreen() {
         title="Tasks" 
         icon="rocket"
       />
+      
+      {/* Space Scope Toggle */}
+      <View style={styles.scopeContainer}>
+        <Pressable
+          style={[styles.scopeButton, !showAllSpaces && styles.scopeButtonActive]}
+          onPress={() => {
+            Haptics.selectionAsync();
+            setShowAllSpaces(false);
+          }}
+        >
+          <Ionicons 
+            name="layers-outline" 
+            size={14} 
+            color={!showAllSpaces ? colors.white : colors.text.secondary} 
+          />
+          <Text style={[styles.scopeButtonText, !showAllSpaces && styles.scopeButtonTextActive]}>
+            {currentSpace?.Name || 'Current Space'}
+          </Text>
+        </Pressable>
+        <Pressable
+          style={[styles.scopeButton, showAllSpaces && styles.scopeButtonActive]}
+          onPress={() => {
+            Haptics.selectionAsync();
+            setShowAllSpaces(true);
+          }}
+        >
+          <Ionicons 
+            name="globe-outline" 
+            size={14} 
+            color={showAllSpaces ? colors.white : colors.text.secondary} 
+          />
+          <Text style={[styles.scopeButtonText, showAllSpaces && styles.scopeButtonTextActive]}>
+            All Spaces
+          </Text>
+        </Pressable>
+      </View>
       
       {/* Filter tabs */}
       <View style={styles.filterContainer}>
@@ -229,7 +280,7 @@ export default function DeploymentsScreen() {
         ListEmptyComponent={
           !isLoading ? (
             <EmptyState
-              icon="📋"
+              ionicon="rocket-outline"
               title="No tasks found"
               message={filter !== 'all' ? 'Try a different filter' : 'Tasks will appear here when deployments run'}
             />
@@ -245,6 +296,35 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.background.primary,
+  },
+  scopeContainer: {
+    flexDirection: 'row',
+    paddingHorizontal: spacing.md,
+    paddingTop: spacing.sm,
+    gap: spacing.sm,
+  },
+  scopeButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+    borderRadius: borderRadius.md,
+    backgroundColor: colors.background.secondary,
+    borderWidth: 1,
+    borderColor: colors.border.muted,
+  },
+  scopeButtonActive: {
+    backgroundColor: colors.brand.primary,
+    borderColor: colors.brand.primary,
+  },
+  scopeButtonText: {
+    color: colors.text.secondary,
+    fontSize: fontSize.sm,
+    fontWeight: '500',
+  },
+  scopeButtonTextActive: {
+    color: colors.white,
   },
   filterContainer: {
     flexDirection: 'row',
