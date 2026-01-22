@@ -716,7 +716,7 @@ export default function ProjectDetailScreen() {
     if (!variables?.Variables?.length) {
       return (
         <EmptyState
-          icon="🔐"
+          ionicon="code-slash-outline"
           title="No variables"
           message="Add project variables in Octopus Deploy"
         />
