@@ -25,6 +25,13 @@ import {
   useTaskInterruptions,
   useSubmitInterruption,
   useTakeResponsibility,
+  useDeployment,
+  useRunbookRun,
+  useProject,
+  useRelease,
+  useEnvironment,
+  useTenant,
+  useRunbook,
 } from '../../src/hooks/useOctopusQuery';
 import { StatusBadge } from '../../src/components/ui/StatusBadge';
 import { Card } from '../../src/components/ui/Card';
@@ -36,6 +43,26 @@ import { fontSize, spacing, borderRadius } from '../../src/theme/spacing';
 import type { ActivityLog } from '../../src/lib/api/types';
 
 type ViewMode = 'activity' | 'raw';
+
+// Helper to extract deployment ID from task arguments
+const getDeploymentIdFromTask = (task: { Name?: string; Arguments?: Record<string, unknown> }): string | null => {
+  // Check if it's a deployment task
+  if (task.Name?.includes('Deploy')) {
+    const args = task.Arguments as Record<string, string> | undefined;
+    return args?.DeploymentId || null;
+  }
+  return null;
+};
+
+// Helper to extract runbook run ID from task arguments  
+const getRunbookRunIdFromTask = (task: { Name?: string; Arguments?: Record<string, unknown> }): string | null => {
+  // Check if it's a runbook task
+  if (task.Name?.includes('Runbook')) {
+    const args = task.Arguments as Record<string, string> | undefined;
+    return args?.RunbookRunId || null;
+  }
+  return null;
+};
 
 const getLogColor = (category: string): string => {
   switch (category) {
@@ -204,6 +231,175 @@ const ActivityItem: React.FC<ActivityItemProps> = ({ activity, depth = 0 }) => {
   );
 };
 
+// Task Context component to show related resources
+interface TaskContextCardProps {
+  task: { Name?: string; Description?: string; Arguments?: Record<string, unknown> };
+  onNavigate: (route: string) => void;
+}
+
+const TaskContextCard: React.FC<TaskContextCardProps> = ({ task, onNavigate }) => {
+  // Extract IDs from task arguments
+  const deploymentId = getDeploymentIdFromTask(task);
+  const runbookRunId = getRunbookRunIdFromTask(task);
+  
+  // Also extract IDs directly from Arguments (more reliable)
+  const args = task.Arguments as Record<string, string> | undefined;
+  const directDeploymentId = args?.DeploymentId;
+  const directRunbookRunId = args?.RunbookRunId;
+  
+  const effectiveDeploymentId = deploymentId || directDeploymentId;
+  const effectiveRunbookRunId = runbookRunId || directRunbookRunId;
+  
+  // Fetch deployment and related resources (with error handling)
+  const { data: deployment, isError: deploymentError } = useDeployment(effectiveDeploymentId || '');
+  const { data: runbookRun, isError: runbookRunError } = useRunbookRun(effectiveRunbookRunId || '');
+  
+  // Get IDs from deployment or runbook run
+  const projectId = deployment?.ProjectId || runbookRun?.ProjectId;
+  const environmentId = deployment?.EnvironmentId || runbookRun?.EnvironmentId;
+  const releaseId = deployment?.ReleaseId;
+  const tenantId = deployment?.TenantId || runbookRun?.TenantId;
+  const runbookId = runbookRun?.RunbookId;
+  
+  // Fetch related resource names
+  const { data: project } = useProject(projectId || '');
+  const { data: release } = useRelease(releaseId || '');
+  const { data: environment } = useEnvironment(environmentId || '');
+  const { data: tenant } = useTenant(tenantId || '');
+  const { data: runbook } = useRunbook(runbookId || '');
+  
+  // Parse info from task description as fallback
+  // e.g. "Deploy Swift Bridge release 25.12.16162317 to Development"
+  const parseDescriptionInfo = () => {
+    const desc = task.Description || '';
+    const info: { projectName?: string; releaseVersion?: string; environmentName?: string; runbookName?: string } = {};
+    
+    // Deployment pattern: "Deploy {Project} release {Version} to {Environment}"
+    const deployMatch = desc.match(/^Deploy (.+?) release ([\d.]+) to (.+?)$/);
+    if (deployMatch) {
+      info.projectName = deployMatch[1];
+      info.releaseVersion = deployMatch[2];
+      info.environmentName = deployMatch[3];
+    }
+    
+    // Runbook pattern: "Run {Runbook} on {Environment}"
+    const runbookMatch = desc.match(/^Run (.+?) on (.+?)(?: for tenant (.+))?$/);
+    if (runbookMatch) {
+      info.runbookName = runbookMatch[1];
+      info.environmentName = runbookMatch[2];
+    }
+    
+    return info;
+  };
+  
+  const descInfo = parseDescriptionInfo();
+  
+  // Build context items - prefer API data, fallback to parsed description
+  const contextItems: { icon: keyof typeof Ionicons.glyphMap; label: string; value: string; onPress?: () => void }[] = [];
+  
+  // Project
+  if (project) {
+    contextItems.push({
+      icon: 'cube-outline',
+      label: 'Project',
+      value: project.Name,
+      onPress: () => onNavigate(`/project/${project.Id}`),
+    });
+  } else if (descInfo.projectName) {
+    contextItems.push({
+      icon: 'cube-outline',
+      label: 'Project',
+      value: descInfo.projectName,
+    });
+  }
+  
+  // Environment
+  if (environment) {
+    contextItems.push({
+      icon: 'server-outline',
+      label: 'Environment',
+      value: environment.Name,
+    });
+  } else if (descInfo.environmentName) {
+    contextItems.push({
+      icon: 'server-outline',
+      label: 'Environment',
+      value: descInfo.environmentName,
+    });
+  }
+  
+  // Release
+  if (release) {
+    contextItems.push({
+      icon: 'pricetag-outline',
+      label: 'Release',
+      value: release.Version,
+      onPress: () => onNavigate(`/release/${release.Id}`),
+    });
+  } else if (descInfo.releaseVersion) {
+    contextItems.push({
+      icon: 'pricetag-outline',
+      label: 'Release',
+      value: descInfo.releaseVersion,
+    });
+  }
+  
+  // Runbook
+  if (runbook) {
+    contextItems.push({
+      icon: 'book-outline',
+      label: 'Runbook',
+      value: runbook.Name,
+      onPress: () => onNavigate(`/runbook/${runbook.Id}`),
+    });
+  } else if (descInfo.runbookName) {
+    contextItems.push({
+      icon: 'book-outline',
+      label: 'Runbook',
+      value: descInfo.runbookName,
+    });
+  }
+  
+  // Tenant
+  if (tenant) {
+    contextItems.push({
+      icon: 'people-outline',
+      label: 'Tenant',
+      value: tenant.Name,
+    });
+  }
+  
+  // Don't render if we have nothing to show
+  if (contextItems.length === 0) {
+    return null;
+  }
+  
+  return (
+    <Card style={styles.contextCard}>
+      <Text style={styles.contextTitle}>Context</Text>
+      {contextItems.map((item, index) => (
+        <Pressable
+          key={index}
+          style={[styles.contextRow, item.onPress && styles.contextRowPressable]}
+          onPress={item.onPress}
+          disabled={!item.onPress}
+        >
+          <View style={styles.contextLabelContainer}>
+            <Ionicons name={item.icon} size={16} color={colors.text.tertiary} />
+            <Text style={styles.contextLabel}>{item.label}</Text>
+          </View>
+          <View style={styles.contextValueContainer}>
+            <Text style={styles.contextValue} numberOfLines={1}>{item.value}</Text>
+            {item.onPress && (
+              <Ionicons name="chevron-forward" size={16} color={colors.text.tertiary} />
+            )}
+          </View>
+        </Pressable>
+      ))}
+    </Card>
+  );
+};
+
 // Intervention component for handling guided failures
 interface InterventionCardProps {
   interruption: any;
@@ -329,7 +525,7 @@ const InterventionCard: React.FC<InterventionCardProps> = ({
 
 export default function TaskDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const _router = useRouter();
+  const router = useRouter();
   const scrollViewRef = useRef<ScrollView>(null);
   const [viewMode, setViewMode] = useState<ViewMode>('activity');
   const [autoScroll, setAutoScroll] = useState(true);
@@ -441,6 +637,10 @@ export default function TaskDetailScreen() {
     }
   }, [takeResponsibilityMutation, refetchInterruptions]);
 
+  const handleNavigate = useCallback((route: string) => {
+    router.push(route as any);
+  }, [router]);
+
   if (isLoading && !task) {
     return <LoadingScreen message="Loading task details..." />;
   }
@@ -534,6 +734,9 @@ export default function TaskDetailScreen() {
             )}
           </Card>
 
+          {/* Task Context - Project, Release, Environment, etc. */}
+          <TaskContextCard task={task} onNavigate={handleNavigate} />
+
           {/* Pending Interruptions */}
           {interruptions && interruptions.length > 0 && (
             <View style={styles.section}>
@@ -550,36 +753,41 @@ export default function TaskDetailScreen() {
           )}
 
           {/* Timing Info */}
-          <Card>
-            <View style={styles.timingRow}>
-              <View style={styles.timingItem}>
-                <Text style={styles.timingLabel}>Queued</Text>
-                <Text style={styles.timingValue}>{formatDate(task.QueueTime)}</Text>
+          <Card style={styles.contextCard}>
+            <Text style={styles.contextTitle}>Timing</Text>
+            <View style={styles.contextRow}>
+              <View style={styles.contextLabelContainer}>
+                <Ionicons name="hourglass-outline" size={16} color={colors.text.tertiary} />
+                <Text style={styles.contextLabel}>Queued</Text>
               </View>
+              <Text style={styles.contextValue}>{formatDate(task.QueueTime)}</Text>
             </View>
             
-            <View style={styles.timingRow}>
-              <View style={styles.timingItem}>
-                <Text style={styles.timingLabel}>Started</Text>
-                <Text style={styles.timingValue}>{formatDate(task.StartTime)}</Text>
+            <View style={styles.contextRow}>
+              <View style={styles.contextLabelContainer}>
+                <Ionicons name="play-outline" size={16} color={colors.text.tertiary} />
+                <Text style={styles.contextLabel}>Started</Text>
               </View>
+              <Text style={styles.contextValue}>{formatDate(task.StartTime)}</Text>
             </View>
             
             {task.CompletedTime && (
-              <View style={styles.timingRow}>
-                <View style={styles.timingItem}>
-                  <Text style={styles.timingLabel}>Completed</Text>
-                  <Text style={styles.timingValue}>{formatDate(task.CompletedTime)}</Text>
+              <View style={styles.contextRow}>
+                <View style={styles.contextLabelContainer}>
+                  <Ionicons name="checkmark-circle-outline" size={16} color={colors.text.tertiary} />
+                  <Text style={styles.contextLabel}>Completed</Text>
                 </View>
+                <Text style={styles.contextValue}>{formatDate(task.CompletedTime)}</Text>
               </View>
             )}
             
             {task.Duration && (
-              <View style={styles.timingRow}>
-                <View style={styles.timingItem}>
-                  <Text style={styles.timingLabel}>Duration</Text>
-                  <Text style={styles.timingValue}>{formatDuration(task.Duration)}</Text>
+              <View style={[styles.contextRow, { borderBottomWidth: 0 }]}>
+                <View style={styles.contextLabelContainer}>
+                  <Ionicons name="time-outline" size={16} color={colors.text.tertiary} />
+                  <Text style={styles.contextLabel}>Duration</Text>
                 </View>
+                <Text style={styles.contextValue}>{formatDuration(task.Duration)}</Text>
               </View>
             )}
           </Card>
@@ -753,24 +961,49 @@ const styles = StyleSheet.create({
   cancelButton: {
     marginTop: spacing.md,
   },
-  timingRow: {
+  // Context card styles
+  contextCard: {
+    padding: spacing.md,
+  },
+  contextTitle: {
+    color: colors.text.primary,
+    fontSize: fontSize.md,
+    fontWeight: '600',
+    marginBottom: spacing.sm,
+  },
+  contextRow: {
     flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
     paddingVertical: spacing.sm,
     borderBottomWidth: 1,
     borderBottomColor: colors.border.muted,
   },
-  timingItem: {
-    flex: 1,
+  contextRowPressable: {
+    // No additional styles needed, but pressable rows show chevron
   },
-  timingLabel: {
+  contextLabelContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  contextLabel: {
     color: colors.text.secondary,
     fontSize: fontSize.sm,
-    marginBottom: spacing.xs,
   },
-  timingValue: {
+  contextValueContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    flex: 1,
+    justifyContent: 'flex-end',
+  },
+  contextValue: {
     color: colors.text.primary,
-    fontSize: fontSize.md,
+    fontSize: fontSize.sm,
     fontWeight: '500',
+    textAlign: 'right',
+    maxWidth: '70%',
   },
   section: {
     marginTop: spacing.md,

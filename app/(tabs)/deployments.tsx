@@ -13,9 +13,10 @@ import {
   Pressable,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
+import { useRouter, useFocusEffect } from 'expo-router';
 import * as Haptics from 'expo-haptics';
-import { useTasks } from '../../src/hooks/useOctopusQuery';
+import { Ionicons } from '@expo/vector-icons';
+import { useTasks, useSpaces } from '../../src/hooks/useOctopusQuery';
 import { Card } from '../../src/components/ui/Card';
 import { StatusBadge } from '../../src/components/ui/StatusBadge';
 import { ErrorView } from '../../src/components/ui/ErrorView';
@@ -37,6 +38,7 @@ const FILTER_OPTIONS: { key: FilterState; label: string; states?: string[] }[] =
 export default function DeploymentsScreen() {
   const router = useRouter();
   const [filter, setFilter] = useState<FilterState>('all');
+  const [refreshing, setRefreshing] = useState(false);
   
   const activeStates = FILTER_OPTIONS.find(f => f.key === filter)?.states;
   
@@ -45,6 +47,34 @@ export default function DeploymentsScreen() {
     states: activeStates,
     name: 'Deploy',
   });
+  
+  // Fetch spaces for lookup
+  const { data: spaces } = useSpaces();
+  const spaceLookup = React.useMemo(() => {
+    const map: Record<string, string> = {};
+    spaces?.forEach(space => {
+      map[space.Id] = space.Name;
+    });
+    return map;
+  }, [spaces]);
+  
+  // Refetch when tab gains focus
+  useFocusEffect(
+    useCallback(() => {
+      refetch();
+    }, [refetch])
+  );
+  
+  // Manual refresh handler with minimum spinner time for better UX
+  const handleRefresh = useCallback(async () => {
+    setRefreshing(true);
+    try {
+      await refetch();
+    } finally {
+      // Ensure spinner shows for at least 500ms for visual feedback
+      setTimeout(() => setRefreshing(false), 500);
+    }
+  }, [refetch]);
   
   const tasks = tasksData?.Items || [];
 
@@ -79,54 +109,66 @@ export default function DeploymentsScreen() {
     router.push(`/task/${task.Id}`);
   }, [router]);
 
-  const renderTask = useCallback(({ item }: { item: Task }) => (
-    <Card
-      onPress={() => handleTaskPress(item)}
-      style={styles.taskCard}
-    >
-      <View style={styles.taskHeader}>
-        <View style={styles.taskInfo}>
-          <Text style={styles.taskDescription} numberOfLines={2}>
-            {item.Description}
-          </Text>
-        </View>
-        <StatusBadge status={item.State} size="sm" />
-      </View>
-      
-      <View style={styles.taskFooter}>
-        <View style={styles.taskMeta}>
-          {item.State === 'Executing' && (
-            <View style={styles.progressIndicator}>
-              <View style={styles.progressDot} />
-              <Text style={styles.progressText}>In progress</Text>
-            </View>
-          )}
-          
-          {item.IsCompleted && item.Duration && (
-            <Text style={styles.duration}>
-              ⏱️ {formatDuration(item.Duration)}
+  const renderTask = useCallback(({ item }: { item: Task }) => {
+    const spaceName = item.SpaceId ? spaceLookup[item.SpaceId] : null;
+    
+    return (
+      <Card
+        onPress={() => handleTaskPress(item)}
+        style={styles.taskCard}
+      >
+        <View style={styles.taskHeader}>
+          <View style={styles.taskInfo}>
+            <Text style={styles.taskDescription} numberOfLines={2}>
+              {item.Description}
             </Text>
-          )}
+          </View>
+          <StatusBadge status={item.State} size="sm" />
         </View>
         
-        <Text style={styles.timeAgo}>
-          {getTimeAgo(item.QueueTime)}
-        </Text>
-      </View>
-      
-      {item.HasWarningsOrErrors && (
-        <View style={styles.warningBanner}>
-          <Text style={styles.warningText}>⚠️ Has warnings or errors</Text>
+        <View style={styles.taskFooter}>
+          <View style={styles.taskMeta}>
+            {item.State === 'Executing' && (
+              <View style={styles.progressIndicator}>
+                <View style={styles.progressDot} />
+                <Text style={styles.progressText}>In progress</Text>
+              </View>
+            )}
+            
+            {item.IsCompleted && item.Duration && (
+              <View style={styles.durationContainer}>
+                <Ionicons name="time-outline" size={12} color={colors.text.secondary} />
+                <Text style={styles.duration}>{formatDuration(item.Duration)}</Text>
+              </View>
+            )}
+            
+            {spaceName && (
+              <View style={styles.spaceTag}>
+                <Ionicons name="layers-outline" size={12} color={colors.text.tertiary} />
+                <Text style={styles.spaceText}>{spaceName}</Text>
+              </View>
+            )}
+          </View>
+          
+          <Text style={styles.timeAgo}>
+            {getTimeAgo(item.QueueTime)}
+          </Text>
         </View>
-      )}
-      
-      {item.HasPendingInterruptions && (
-        <View style={styles.interruptionBanner}>
-          <Text style={styles.interruptionText}>⏸️ Awaiting intervention</Text>
-        </View>
-      )}
-    </Card>
-  ), [handleTaskPress]);
+        
+        {item.HasWarningsOrErrors && (
+          <View style={styles.warningBanner}>
+            <Text style={styles.warningText}>⚠️ Has warnings or errors</Text>
+          </View>
+        )}
+        
+        {item.HasPendingInterruptions && (
+          <View style={styles.interruptionBanner}>
+            <Text style={styles.interruptionText}>⏸️ Awaiting intervention</Text>
+          </View>
+        )}
+      </Card>
+    );
+  }, [handleTaskPress, spaceLookup]);
 
   const keyExtractor = useCallback((item: Task) => item.Id, []);
 
@@ -179,8 +221,8 @@ export default function DeploymentsScreen() {
         contentContainerStyle={styles.listContent}
         refreshControl={
           <RefreshControl
-            refreshing={isLoading}
-            onRefresh={refetch}
+            refreshing={refreshing}
+            onRefresh={handleRefresh}
             tintColor={colors.brand.primary}
           />
         }
@@ -283,8 +325,30 @@ const styles = StyleSheet.create({
     fontSize: fontSize.xs,
     fontWeight: '500',
   },
+  durationContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: colors.background.tertiary,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 2,
+    borderRadius: borderRadius.sm,
+  },
   duration: {
     color: colors.text.secondary,
+    fontSize: fontSize.xs,
+  },
+  spaceTag: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: colors.background.tertiary,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 2,
+    borderRadius: borderRadius.sm,
+  },
+  spaceText: {
+    color: colors.text.tertiary,
     fontSize: fontSize.xs,
   },
   timeAgo: {
