@@ -140,7 +140,7 @@ export default function SettingsScreen() {
               </View>
               <View style={styles.accountInfo}>
                 <Text style={styles.displayName}>{user?.DisplayName || 'Unknown'}</Text>
-                <Text style={styles.username}>@{user?.Username || 'unknown'}</Text>
+                <Text style={styles.username}>{user?.Username || 'unknown'}</Text>
               </View>
             </View>
             
@@ -295,7 +295,7 @@ export default function SettingsScreen() {
             <View style={styles.aboutContent}>
               <Text style={styles.appName}>OctoGo</Text>
               <Text style={styles.appVersion}>
-                0.8.1
+                0.8.2
               </Text>
               <Text style={styles.appDescription}>
                 Unofficial mobile client for Octopus Deploy
