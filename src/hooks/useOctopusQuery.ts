@@ -245,7 +245,7 @@ export const useProject = (projectId: string) => {
     queryKey: queryKeys.project(projectId),
     queryFn: () => getProject(projectId),
     enabled: !!projectId,
-    staleTime: 2 * 60 * 1000,
+    staleTime: 0, // Always refetch - project config can change (e.g., lifecycle)
   });
 };
 
@@ -287,7 +287,7 @@ export const useLifecycle = (lifecycleId: string | null | undefined) => {
     queryKey: queryKeys.lifecycle(lifecycleId || ''),
     queryFn: () => getLifecycle(lifecycleId!),
     enabled: !!lifecycleId,
-    staleTime: 5 * 60 * 1000, // 5 minutes - lifecycles rarely change
+    staleTime: 0, // Always refetch - lifecycle determines which environments are shown
   });
 };
 

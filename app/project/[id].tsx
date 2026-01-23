@@ -60,7 +60,6 @@ export default function ProjectDetailScreen() {
   const { currentInstance } = useAuth();
   const { isFavorite, toggleFavorite } = useFavorites();
   const [expandedSections, setExpandedSections] = useState<Set<SectionId>>(new Set(['dashboard']));
-  const [selectedRelease, setSelectedRelease] = useState<Release | null>(null);
   // Lifecycle modal state
   const [showLifecycleModal, setShowLifecycleModal] = useState(false);
   
@@ -70,6 +69,9 @@ export default function ProjectDetailScreen() {
   
   // Kubernetes status modal state
   const [selectedK8sStatus, setSelectedK8sStatus] = useState<{ envName: string; status: KubernetesLiveStatus } | null>(null);
+  
+  // Deploy confirmation modal state
+  const [showDeployModal, setShowDeployModal] = useState(false);
   
   const isProjectFavorite = isFavorite(id!);
   
@@ -88,8 +90,8 @@ export default function ProjectDetailScreen() {
   const { data: runbooks } = useProjectRunbooks(id!);
   const { data: variables } = useProjectVariables(id!);
   const { data: channels } = useProjectChannels(id!);
-  const { data: allEnvironments } = useEnvironments();
-  const { data: lifecycle, isLoading: lifecycleLoading } = useLifecycle(project?.LifecycleId);
+  const { data: allEnvironments, refetch: refetchEnvironments } = useEnvironments();
+  const { data: lifecycle, isLoading: lifecycleLoading, refetch: refetchLifecycle } = useLifecycle(project?.LifecycleId);
   
   // Fetch tenants if project uses tenanted deployments
   const { data: tenantsData } = useTenants({ 
@@ -99,14 +101,55 @@ export default function ProjectDetailScreen() {
   
   const createDeployment = useCreateDeployment();
   
+  
   const releases = releasesData?.Items || [];
   
-  // Use environments from the dashboard response (already includes the project's environments)
+  // Get all valid environment IDs from the lifecycle
+  // Note: Channels can override the project's lifecycle, so we need to check both
+  // For simplicity, if any channel has a lifecycle override, we show all environments
+  // from projectSummary since different releases may use different channels
+  const hasChannelLifecycleOverride = useMemo(() => {
+    return channels?.some(ch => ch.LifecycleId && ch.LifecycleId !== project?.LifecycleId);
+  }, [channels, project?.LifecycleId]);
+
+  const lifecycleEnvironmentIds = useMemo(() => {
+    // If any channel overrides the lifecycle, show all environments from summary
+    // because different releases may use different channels with different lifecycles
+    if (hasChannelLifecycleOverride) {
+      return null; // null means "show all"
+    }
+    
+    if (!lifecycle?.Phases) return new Set<string>();
+    
+    const validEnvIds = new Set<string>();
+    lifecycle.Phases.forEach(phase => {
+      // Add all automatic deployment targets
+      phase.AutomaticDeploymentTargets?.forEach(envId => validEnvIds.add(envId));
+      // Add all optional (manual) deployment targets
+      phase.OptionalDeploymentTargets?.forEach(envId => validEnvIds.add(envId));
+    });
+    
+    return validEnvIds;
+  }, [lifecycle, hasChannelLifecycleOverride]);
+
+  // Only show environments that are in the project's lifecycle
   const sortedEnvironments = useMemo(() => {
     if (!projectSummary?.Environments) return [];
-    // DashboardEnvironment doesn't have SortOrder, so just use the order from API
-    return projectSummary.Environments;
-  }, [projectSummary]);
+    
+    // If channels have lifecycle overrides, show all environments
+    // because different releases/channels may use different lifecycles
+    if (lifecycleEnvironmentIds === null) {
+      return projectSummary.Environments;
+    }
+    
+    // If lifecycle hasn't loaded yet, don't show any environments
+    if (!lifecycle?.Phases) return [];
+    
+    // Filter to only environments in the lifecycle
+    return projectSummary.Environments.filter(env => 
+      lifecycleEnvironmentIds.has(env.Id)
+    );
+  }, [projectSummary, lifecycleEnvironmentIds, lifecycle]);
 
   // Build deployment matrix from deployments endpoint
   // Map<ReleaseId, Map<EnvironmentId, DeploymentInfo>>
@@ -197,6 +240,7 @@ export default function ProjectDetailScreen() {
   }, [k8sStatus1, env1, k8sStatus2, env2, k8sStatus3, env3, k8sStatus4, env4, k8sStatus5, env5]);
 
 
+
   const toggleSection = (section: SectionId) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     setExpandedSections(prev => {
@@ -216,34 +260,48 @@ export default function ProjectDetailScreen() {
     refetchSummary();
     refetchDeployments();
     refetchProgression();
-  }, [refetchProject, refetchReleases, refetchSummary, refetchDeployments, refetchProgression]);
+    refetchLifecycle();
+    refetchEnvironments();
+  }, [refetchProject, refetchReleases, refetchSummary, refetchDeployments, refetchProgression, refetchLifecycle, refetchEnvironments]);
+
+  // State for direct deploy modal
+  const [deployTarget, setDeployTarget] = useState<{ release: Release; environment: DashboardEnvironment } | null>(null);
 
   const handleDeployRelease = useCallback((release: Release, environment: DashboardEnvironment) => {
-    Alert.alert(
-      'Deploy Release',
-      `Deploy ${release.Version} to ${environment.Name}?`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Deploy',
-          onPress: async () => {
-            try {
-              await createDeployment.mutateAsync({
-                releaseId: release.Id,
-                environmentId: environment.Id,
-              });
-              Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-              setSelectedRelease(null);
-              Alert.alert('Success', 'Deployment started successfully');
-            } catch (_error) {
-              Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-              Alert.alert('Error', 'Failed to start deployment');
-            }
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    setDeployTarget({ release, environment });
+    setShowDeployModal(true);
+  }, []);
+
+  const handleConfirmDeploy = useCallback(async () => {
+    if (!deployTarget) return;
+    
+    try {
+      const deployment = await createDeployment.mutateAsync({
+        releaseId: deployTarget.release.Id,
+        environmentId: deployTarget.environment.Id,
+      });
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      setShowDeployModal(false);
+      setDeployTarget(null);
+      handleRefresh();
+      Alert.alert(
+        'Deployment Started',
+        `${deployTarget.release.Version} is being deployed to ${deployTarget.environment.Name}`,
+        [
+          { 
+            text: 'View Task', 
+            onPress: () => router.push(`/task/${deployment.TaskId}`) 
           },
-        },
-      ]
-    );
-  }, [createDeployment]);
+          { text: 'OK', style: 'cancel' },
+        ]
+      );
+    } catch (_error) {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      Alert.alert('Deployment Failed', 'Failed to start deployment. Please try again.');
+    }
+  }, [deployTarget, createDeployment, handleRefresh, router]);
+
 
   const formatDate = (dateString: string): string => {
     const date = new Date(dateString);
@@ -587,20 +645,12 @@ export default function ProjectDetailScreen() {
             {/* Release rows */}
             {releases.map((release) => {
               const releaseDeployments = deploymentMatrix.get(release.Id);
-              const isSelected = selectedRelease?.Id === release.Id;
               
               return (
-                <Pressable 
-                  key={release.Id}
-                  style={[styles.gridRow, isSelected && styles.gridRowSelected]}
-                  onPress={() => {
-                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                    setSelectedRelease(isSelected ? null : release);
-                  }}
-                >
-                  <View style={styles.releaseCell}>
-                    <Text style={styles.releaseVersion}>{release.Version}</Text>
-                  </View>
+                <View key={release.Id} style={styles.gridRow}>
+                    <View style={styles.releaseCell}>
+                      <Text style={styles.releaseVersion}>{release.Version}</Text>
+                    </View>
                   {sortedEnvironments.map((env) => {
                     const data = releaseDeployments?.get(env.Id);
                     const deployment = data?.deployment;
@@ -616,7 +666,8 @@ export default function ProjectDetailScreen() {
                           if (deployment) {
                             Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                             router.push(`/deployment/${deployment.Id}`);
-                          } else if (isSelected) {
+                          } else {
+                            // Empty cell - deploy to this environment
                             handleDeployRelease(release, env);
                           }
                         }}
@@ -642,24 +693,18 @@ export default function ProjectDetailScreen() {
                           </View>
                         ) : (
                           <View style={styles.emptyCell}>
-                            {isSelected ? (
-                              <Pressable 
-                                style={styles.deployButton}
-                                onPress={() => handleDeployRelease(release, env)}
-                              >
-                                <Ionicons name="add" size={16} color={colors.white} />
-                              </Pressable>
-                            ) : (
-                              <View style={styles.emptyDash}>
-                                <Ionicons name="remove" size={20} color={colors.border.muted} />
-                              </View>
-                            )}
+                            <Pressable 
+                              style={styles.deployButtonSmall}
+                              onPress={() => handleDeployRelease(release, env)}
+                            >
+                              <Ionicons name="add-circle-outline" size={24} color={colors.text.tertiary} />
+                            </Pressable>
                           </View>
                         )}
                       </Pressable>
                     );
                   })}
-                </Pressable>
+                </View>
               );
             })}
           </View>
@@ -964,6 +1009,112 @@ export default function ProjectDetailScreen() {
       />
       
       {renderVariableModal()}
+      
+      {/* Deploy Confirmation Modal */}
+      <Modal
+        visible={showDeployModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => {
+          setShowDeployModal(false);
+          setDeployTarget(null);
+        }}
+      >
+        <Pressable 
+          style={styles.modalOverlay}
+          onPress={() => {
+            setShowDeployModal(false);
+            setDeployTarget(null);
+          }}
+        >
+          <Pressable 
+            style={[styles.modalContent, { paddingBottom: spacing.lg + bottomInset }]} 
+            onPress={(e) => e.stopPropagation()}
+          >
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Deploy Release</Text>
+              <Pressable 
+                onPress={() => {
+                  setShowDeployModal(false);
+                  setDeployTarget(null);
+                }}
+                hitSlop={8}
+              >
+                <Ionicons name="close" size={24} color={colors.text.secondary} />
+              </Pressable>
+            </View>
+
+            {/* Info notice */}
+            <View style={styles.deployInfoBox}>
+              <Ionicons name="rocket-outline" size={22} color={colors.brand.primary} />
+              <Text style={styles.deployInfoText}>
+                Deploy this release to the environment below
+              </Text>
+            </View>
+
+            {/* Deployment details */}
+            <View style={styles.deployDetailRow}>
+              <Text style={styles.deployDetailLabel}>Release</Text>
+              <View style={styles.deployDetailValue}>
+                <Ionicons name="pricetag" size={16} color={colors.brand.primary} />
+                <Text style={styles.deployDetailText}>{deployTarget?.release.Version}</Text>
+              </View>
+            </View>
+
+            <View style={styles.deployDetailRow}>
+              <Text style={styles.deployDetailLabel}>Target Environment</Text>
+              <View style={styles.deployDetailValue}>
+                <Ionicons name="server" size={16} color={colors.status.success} />
+                <Text style={styles.deployDetailText}>{deployTarget?.environment.Name}</Text>
+              </View>
+            </View>
+
+            {lifecycle && (
+              <View style={styles.deployDetailRow}>
+                <Text style={styles.deployDetailLabel}>Lifecycle</Text>
+                <View style={styles.deployDetailValue}>
+                  <Ionicons name="git-network" size={16} color={colors.text.tertiary} />
+                  <Text style={styles.deployDetailText}>{lifecycle.Name}</Text>
+                </View>
+              </View>
+            )}
+
+            {/* Action buttons */}
+            <View style={styles.deployModalButtons}>
+              <Pressable 
+                style={styles.deployModalCancelButton}
+                onPress={() => {
+                  setShowDeployModal(false);
+                  setDeployTarget(null);
+                }}
+              >
+                <Text style={styles.deployModalCancelText}>Cancel</Text>
+              </Pressable>
+              
+              <Pressable 
+                style={[
+                  styles.deployModalConfirmButton,
+                  createDeployment.isPending && styles.deployModalButtonDisabled
+                ]}
+                onPress={handleConfirmDeploy}
+                disabled={createDeployment.isPending}
+              >
+                {createDeployment.isPending ? (
+                  <>
+                    <Ionicons name="hourglass" size={18} color={colors.white} />
+                    <Text style={styles.deployModalConfirmText}>Deploying...</Text>
+                  </>
+                ) : (
+                  <>
+                    <Ionicons name="rocket" size={18} color={colors.white} />
+                    <Text style={styles.deployModalConfirmText}>Deploy Now</Text>
+                  </>
+                )}
+              </Pressable>
+            </View>
+          </Pressable>
+        </Pressable>
+      </Modal>
       
       {/* Kubernetes Live Status Modal */}
       <Modal
@@ -1699,10 +1850,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     minHeight: 70,
   },
-  gridRowSelected: {
-    backgroundColor: colors.interactive.focus,
-    borderRadius: borderRadius.md,
-  },
   releaseCell: {
     width: 90,
     paddingRight: spacing.sm,
@@ -1757,6 +1904,83 @@ const styles = StyleSheet.create({
     backgroundColor: colors.brand.primary,
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  deployButtonSmall: {
+    padding: spacing.xs,
+    opacity: 0.6,
+  },
+  
+  // Deploy Modal styles
+  deployInfoBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    marginBottom: spacing.lg,
+    paddingBottom: spacing.md,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border.muted,
+  },
+  deployInfoText: {
+    color: colors.text.secondary,
+    fontSize: fontSize.sm,
+    flex: 1,
+  },
+  deployDetailRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: spacing.sm,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border.muted,
+  },
+  deployDetailLabel: {
+    color: colors.text.tertiary,
+    fontSize: fontSize.sm,
+  },
+  deployDetailValue: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  deployDetailText: {
+    color: colors.text.primary,
+    fontSize: fontSize.sm,
+    fontWeight: '600',
+  },
+  deployModalButtons: {
+    flexDirection: 'row',
+    gap: spacing.md,
+    marginTop: spacing.lg,
+  },
+  deployModalCancelButton: {
+    flex: 1,
+    backgroundColor: colors.background.tertiary,
+    paddingVertical: spacing.md,
+    borderRadius: borderRadius.md,
+    alignItems: 'center',
+  },
+  deployModalCancelText: {
+    color: colors.text.secondary,
+    fontSize: fontSize.md,
+    fontWeight: '600',
+  },
+  deployModalConfirmButton: {
+    flex: 2,
+    backgroundColor: colors.brand.primary,
+    paddingVertical: spacing.md,
+    borderRadius: borderRadius.md,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.sm,
+  },
+  deployModalButtonDisabled: {
+    opacity: 0.7,
+  },
+  deployModalConfirmText: {
+    color: colors.white,
+    fontSize: fontSize.md,
+    fontWeight: '600',
   },
 
   // List items (runbooks, channels)
