@@ -1591,3 +1591,37 @@ export const globalSearch = async (
     variables,
   };
 };
+
+/**
+ * Gets the URL for a tenant's logo image
+ * Returns null if credentials are not available
+ */
+export const getTenantLogoUrl = async (tenantId: string): Promise<string | null> => {
+  const credentials = await getCredentials();
+  if (!credentials) return null;
+  
+  const { serverUrl, spaceId, apiKey } = credentials;
+  // The logo endpoint: /api/{spaceId}/tenants/{tenantId}/logo
+  // We append the API key as a query param for image requests
+  const baseUrl = spaceId 
+    ? `${serverUrl}/api/${spaceId}/tenants/${sanitizePathSegment(tenantId)}/logo`
+    : `${serverUrl}/api/tenants/${sanitizePathSegment(tenantId)}/logo`;
+  
+  return `${baseUrl}?apiKey=${apiKey}`;
+};
+
+/**
+ * Synchronous helper to build tenant logo URL (requires pre-fetched credentials)
+ */
+export const buildTenantLogoUrl = (
+  serverUrl: string,
+  spaceId: string | null,
+  tenantId: string,
+  apiKey: string
+): string => {
+  const baseUrl = spaceId 
+    ? `${serverUrl}/api/${spaceId}/tenants/${sanitizePathSegment(tenantId)}/logo`
+    : `${serverUrl}/api/tenants/${sanitizePathSegment(tenantId)}/logo`;
+  
+  return `${baseUrl}?apiKey=${apiKey}`;
+};
