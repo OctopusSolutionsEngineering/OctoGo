@@ -49,14 +49,14 @@ export default function RunbookDetailScreen() {
   const bottomInset = Platform.OS === 'android' ? insets.bottom : 0;
   
   const [showRunModal, setShowRunModal] = useState(false);
-  const [selectedEnvironment, setSelectedEnvironment] = useState<Environment | null>(null);
+  const [selectedEnvironments, setSelectedEnvironments] = useState<Environment[]>([]);
   const [selectedSnapshot, setSelectedSnapshot] = useState<RunbookSnapshot | null>(null);
 
   const { data: runbook, isLoading: runbookLoading, error: runbookError, refetch: refetchRunbook } = useRunbook(id!);
   const { data: project } = useProject(runbook?.ProjectId || '');
   const { data: environments } = useEnvironments(); // For display purposes (env names)
   const { data: availableEnvironments = [], isLoading: environmentsLoading } = useRunbookEnvironments(runbook?.ProjectId, id);
-  const { data: snapshotsData, isLoading: snapshotsLoading } = useRunbookSnapshots(id!, { take: 10 });
+  const { data: snapshotsData, isLoading: snapshotsLoading, refetch: refetchSnapshots } = useRunbookSnapshots(id!, { take: 10 });
   const { data: runsData, isLoading: runsLoading, refetch: refetchRuns } = useRunbookRuns({ runbookId: id!, take: 20 });
   // Use the RunbookProcessId from the runbook for efficient process fetching
   const { data: runbookProcess } = useRunbookProcessById(runbook?.RunbookProcessId);
@@ -75,8 +75,9 @@ export default function RunbookDetailScreen() {
 
   const handleRefresh = useCallback(() => {
     refetchRunbook();
+    refetchSnapshots();
     refetchRuns();
-  }, [refetchRunbook, refetchRuns]);
+  }, [refetchRunbook, refetchSnapshots, refetchRuns]);
 
   const openRunModal = useCallback(() => {
     if (!publishedSnapshot) {
@@ -84,33 +85,55 @@ export default function RunbookDetailScreen() {
       return;
     }
     setSelectedSnapshot(publishedSnapshot);
-    setSelectedEnvironment(null);
+    setSelectedEnvironments([]);
     setShowRunModal(true);
   }, [publishedSnapshot]);
 
+  const toggleEnvironment = useCallback((env: Environment) => {
+    Haptics.selectionAsync();
+    setSelectedEnvironments(prev => {
+      const isSelected = prev.some(e => e.Id === env.Id);
+      if (isSelected) {
+        return prev.filter(e => e.Id !== env.Id);
+      } else {
+        return [...prev, env];
+      }
+    });
+  }, []);
+
   const handleRunRunbook = useCallback(async () => {
-    if (!selectedEnvironment || !selectedSnapshot || !runbook) {
-      Alert.alert('Error', 'Please select an environment');
+    if (selectedEnvironments.length === 0 || !selectedSnapshot || !runbook) {
+      Alert.alert('Error', 'Please select at least one environment');
       return;
     }
 
     try {
-      const run = await createRunbookRun.mutateAsync({
-        runbookId: runbook.Id,
-        runbookSnapshotId: selectedSnapshot.Id,
-        environmentId: selectedEnvironment.Id,
-      });
+      // Run for each selected environment
+      const runs = await Promise.all(
+        selectedEnvironments.map(env =>
+          createRunbookRun.mutateAsync({
+            runbookId: runbook.Id,
+            runbookSnapshotId: selectedSnapshot.Id,
+            environmentId: env.Id,
+          })
+        )
+      );
       
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       setShowRunModal(false);
       
+      const envNames = selectedEnvironments.map(e => e.Name).join(', ');
+      const envCount = selectedEnvironments.length;
+      
       Alert.alert(
         'Runbook Started',
-        `${runbook.Name} is now running on ${selectedEnvironment.Name}`,
-        [
-          { text: 'View Task', onPress: () => router.push(`/task/${run.TaskId}`) },
-          { text: 'OK' },
-        ]
+        `${runbook.Name} is now running on ${envCount === 1 ? envNames : `${envCount} environments: ${envNames}`}`,
+        envCount === 1
+          ? [
+              { text: 'View Task', onPress: () => router.push(`/task/${runs[0].TaskId}`) },
+              { text: 'OK' },
+            ]
+          : [{ text: 'OK' }]
       );
       
       refetchRuns();
@@ -118,7 +141,7 @@ export default function RunbookDetailScreen() {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
       Alert.alert('Error', error.message || 'Failed to run runbook');
     }
-  }, [runbook, selectedEnvironment, selectedSnapshot, createRunbookRun, router, refetchRuns]);
+  }, [runbook, selectedEnvironments, selectedSnapshot, createRunbookRun, router, refetchRuns]);
 
   const getTimeAgo = (dateString: string): string => {
     const date = new Date(dateString);
@@ -272,7 +295,7 @@ export default function RunbookDetailScreen() {
               </View>
             ) : (
               <EmptyState
-                icon="📋"
+                ionicon="play-circle-outline"
                 title="No runs yet"
                 message="This runbook hasn't been executed yet"
               />
@@ -296,7 +319,7 @@ export default function RunbookDetailScreen() {
                 </Pressable>
               </View>
 
-              <Text style={styles.modalLabel}>Select Environment</Text>
+              <Text style={styles.modalLabel}>Select Environments</Text>
               {environmentsLoading ? (
                 <View style={styles.environmentLoadingContainer}>
                   <ActivityIndicator size="small" color={colors.brand.primary} />
@@ -309,31 +332,31 @@ export default function RunbookDetailScreen() {
                 </View>
               ) : (
                 <ScrollView style={styles.environmentList} horizontal={false}>
-                  {availableEnvironments.map((env) => (
-                    <Pressable
-                      key={env.Id}
-                      style={[
-                        styles.environmentOption,
-                        selectedEnvironment?.Id === env.Id && styles.environmentOptionSelected,
-                      ]}
-                      onPress={() => {
-                        Haptics.selectionAsync();
-                        setSelectedEnvironment(env);
-                      }}
-                    >
-                      <Ionicons 
-                        name={selectedEnvironment?.Id === env.Id ? 'radio-button-on' : 'radio-button-off'} 
-                        size={20} 
-                        color={selectedEnvironment?.Id === env.Id ? colors.brand.primary : colors.text.tertiary} 
-                      />
-                      <Text style={[
-                        styles.environmentOptionText,
-                        selectedEnvironment?.Id === env.Id && styles.environmentOptionTextSelected,
-                      ]}>
-                        {env.Name}
-                      </Text>
-                    </Pressable>
-                  ))}
+                  {availableEnvironments.map((env) => {
+                    const isSelected = selectedEnvironments.some(e => e.Id === env.Id);
+                    return (
+                      <Pressable
+                        key={env.Id}
+                        style={[
+                          styles.environmentOption,
+                          isSelected && styles.environmentOptionSelected,
+                        ]}
+                        onPress={() => toggleEnvironment(env)}
+                      >
+                        <Ionicons 
+                          name={isSelected ? 'checkbox' : 'square-outline'} 
+                          size={20} 
+                          color={isSelected ? colors.brand.primary : colors.text.tertiary} 
+                        />
+                        <Text style={[
+                          styles.environmentOptionText,
+                          isSelected && styles.environmentOptionTextSelected,
+                        ]}>
+                          {env.Name}
+                        </Text>
+                      </Pressable>
+                    );
+                  })}
                 </ScrollView>
               )}
 
@@ -345,11 +368,11 @@ export default function RunbookDetailScreen() {
                   style={styles.modalButton}
                 />
                 <Button
-                  title="Run"
+                  title={selectedEnvironments.length > 1 ? `Run on ${selectedEnvironments.length} Envs` : 'Run'}
                   onPress={handleRunRunbook}
                   variant="primary"
                   loading={createRunbookRun.isPending}
-                  disabled={!selectedEnvironment}
+                  disabled={selectedEnvironments.length === 0}
                   style={styles.modalButton}
                 />
               </View>

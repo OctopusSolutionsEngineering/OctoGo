@@ -295,7 +295,7 @@ export default function SettingsScreen() {
             <View style={styles.aboutContent}>
               <Text style={styles.appName}>OctoGo</Text>
               <Text style={styles.appVersion}>
-                0.8.2
+                0.9.1
               </Text>
               <Text style={styles.appDescription}>
                 Unofficial mobile client for Octopus Deploy
