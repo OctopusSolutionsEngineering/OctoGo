@@ -295,7 +295,7 @@ export default function SettingsScreen() {
             <View style={styles.aboutContent}>
               <Text style={styles.appName}>OctoGo</Text>
               <Text style={styles.appVersion}>
-                Version {Constants.expoConfig?.version || '1.0.0'}
+                0.8.1
               </Text>
               <Text style={styles.appDescription}>
                 Unofficial mobile client for Octopus Deploy
@@ -321,6 +321,14 @@ export default function SettingsScreen() {
           <Text style={styles.securityText}>
             Your API key is stored securely using encrypted device storage and is never transmitted to third parties.
           </Text>
+        </View>
+
+        {/* Attribution */}
+        <View style={styles.attribution}>
+          <Text style={styles.attributionText}>
+            Made with <Text style={styles.heart}>♥</Text> for the Octopus Deploy community
+          </Text>
+          <Text style={styles.attributionAuthor}>by Sean Woodliffe</Text>
         </View>
       </ScrollView>
     </SafeAreaView>
@@ -507,5 +515,25 @@ const styles = StyleSheet.create({
   },
   themeButtonTextActive: {
     color: '#FFFFFF',
+  },
+  attribution: {
+    alignItems: 'center',
+    paddingVertical: spacing.xl,
+    paddingHorizontal: spacing.lg,
+    marginTop: spacing.md,
+  },
+  attributionText: {
+    fontSize: fontSize.sm,
+    color: staticColors.text.tertiary,
+    textAlign: 'center',
+  },
+  heart: {
+    color: '#E91E63',
+  },
+  attributionAuthor: {
+    fontSize: fontSize.sm,
+    color: staticColors.text.tertiary,
+    fontWeight: '500',
+    marginTop: spacing.xs,
   },
 });
