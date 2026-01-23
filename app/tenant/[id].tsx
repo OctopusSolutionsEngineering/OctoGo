@@ -3,7 +3,7 @@
  * View tenant information and connected projects/environments
  */
 
-import React, { useMemo, useState, useCallback } from 'react';
+import React, { useMemo, useState, useCallback, useEffect } from 'react';
 import {
   View,
   Text,
@@ -11,6 +11,7 @@ import {
   Pressable,
   RefreshControl,
   StyleSheet,
+  Image,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
@@ -23,6 +24,8 @@ import {
   useTagSets,
   useDashboard,
 } from '@/src/hooks/useOctopusQuery';
+import { buildTenantLogoUrl } from '@/src/lib/api/client';
+import { getCredentials } from '@/src/lib/security';
 import { Card } from '@/src/components/ui/Card';
 import { LoadingScreen } from '@/src/components/ui/LoadingScreen';
 import { ErrorView } from '@/src/components/ui/ErrorView';
@@ -32,11 +35,56 @@ import { colors } from '@/src/theme/colors';
 import { fontSize, spacing, borderRadius } from '@/src/theme/spacing';
 import type { DashboardItem, TaskState } from '@/src/lib/api/types';
 
+// Hook to get credentials for building logo URLs
+const useCredentials = () => {
+  const [credentials, setCredentials] = useState<{
+    serverUrl: string;
+    apiKey: string;
+    spaceId: string | null;
+  } | null>(null);
+
+  useEffect(() => {
+    getCredentials().then(setCredentials);
+  }, []);
+
+  return credentials;
+};
+
+// Tenant logo component with fallback for detail page
+const TenantLogoLarge = ({ tenantId, serverUrl, spaceId, apiKey }: {
+  tenantId: string;
+  serverUrl: string | null;
+  spaceId: string | null;
+  apiKey: string | null;
+}) => {
+  const [hasError, setHasError] = useState(false);
+  
+  if (!serverUrl || !apiKey || hasError) {
+    return (
+      <View style={styles.tenantIconLarge}>
+        <Ionicons name="business" size={32} color={colors.brand.primary} />
+      </View>
+    );
+  }
+  
+  const logoUrl = buildTenantLogoUrl(serverUrl, spaceId, tenantId, apiKey);
+  
+  return (
+    <Image
+      source={{ uri: logoUrl }}
+      style={styles.tenantLogoLarge}
+      onError={() => setHasError(true)}
+      resizeMode="contain"
+    />
+  );
+};
+
 type SectionId = 'overview' | 'variables' | 'tasks' | 'settings';
 
 export default function TenantDetailScreen() {
   const { id: tenantId } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
+  const credentials = useCredentials();
   const [expandedSections, setExpandedSections] = useState<Set<SectionId>>(new Set(['overview']));
   
   const { 
@@ -226,9 +274,12 @@ export default function TenantDetailScreen() {
           {/* Tenant Header */}
           <View style={styles.headerCard}>
           <View style={styles.tenantHeader}>
-            <View style={styles.tenantIconLarge}>
-              <Ionicons name="business" size={32} color={colors.brand.primary} />
-            </View>
+            <TenantLogoLarge 
+              tenantId={tenant.Id}
+              serverUrl={credentials?.serverUrl || null}
+              spaceId={credentials?.spaceId || null}
+              apiKey={credentials?.apiKey || null}
+            />
               <View style={styles.tenantInfo}>
                 <Text style={styles.tenantName}>{tenant.Name}</Text>
                 {tenant.Description && (
@@ -416,6 +467,13 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: spacing.md,
+  },
+  tenantLogoLarge: {
+    width: 64,
+    height: 64,
+    borderRadius: borderRadius.lg,
+    marginRight: spacing.md,
+    backgroundColor: colors.background.tertiary,
   },
   tenantInfo: {
     flex: 1,
