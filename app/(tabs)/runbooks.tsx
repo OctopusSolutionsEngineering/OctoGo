@@ -223,7 +223,7 @@ export default function RunbooksScreen() {
         ListEmptyComponent={
           !isLoading ? (
             <EmptyState
-              icon="📋"
+              ionicon="book-outline"
               title="No runbooks found"
               message="Create runbooks in Octopus Deploy to automate operations tasks"
             />
