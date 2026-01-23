@@ -3,7 +3,7 @@
  * Browse and search all tenants
  */
 
-import React, { useState, useMemo, useCallback } from 'react';
+import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import {
   View,
   Text,
@@ -12,12 +12,15 @@ import {
   Pressable,
   RefreshControl,
   TextInput,
+  Image,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { useTenants, useTagSets } from '../../src/hooks/useOctopusQuery';
+import { buildTenantLogoUrl } from '../../src/lib/api/client';
+import { getCredentials } from '../../src/lib/security';
 import { Card } from '../../src/components/ui/Card';
 import { LoadingScreen } from '../../src/components/ui/LoadingScreen';
 import { ErrorView } from '../../src/components/ui/ErrorView';
@@ -27,10 +30,75 @@ import { colors } from '../../src/theme/colors';
 import { fontSize, spacing, borderRadius } from '../../src/theme/spacing';
 import type { Tenant, TagSet } from '../../src/lib/api/types';
 
+// Hook to get credentials for building logo URLs
+const useCredentials = () => {
+  const [credentials, setCredentials] = useState<{
+    serverUrl: string;
+    apiKey: string;
+    spaceId: string | null;
+  } | null>(null);
+
+  useEffect(() => {
+    getCredentials().then(setCredentials);
+  }, []);
+
+  return credentials;
+};
+
+// Hook to debounce a value
+const useDebounce = <T,>(value: T, delay: number): T => {
+  const [debouncedValue, setDebouncedValue] = useState<T>(value);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedValue(value);
+    }, delay);
+
+    return () => {
+      clearTimeout(timer);
+    };
+  }, [value, delay]);
+
+  return debouncedValue;
+};
+
+// Tenant logo component with fallback
+const TenantLogo = ({ tenantId, serverUrl, spaceId, apiKey }: {
+  tenantId: string;
+  serverUrl: string | null;
+  spaceId: string | null;
+  apiKey: string | null;
+}) => {
+  const [hasError, setHasError] = useState(false);
+  
+  if (!serverUrl || !apiKey || hasError) {
+    return (
+      <View style={styles.tenantIcon}>
+        <Ionicons name="business" size={20} color={colors.brand.primary} />
+      </View>
+    );
+  }
+  
+  const logoUrl = buildTenantLogoUrl(serverUrl, spaceId, tenantId, apiKey);
+  
+  return (
+    <Image
+      source={{ uri: logoUrl }}
+      style={styles.tenantLogoImage}
+      onError={() => setHasError(true)}
+      resizeMode="contain"
+    />
+  );
+};
+
 export default function TenantsScreen() {
   const router = useRouter();
+  const credentials = useCredentials();
   const [searchText, setSearchText] = useState('');
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
+  
+  // Debounce search text to avoid API calls on every keystroke
+  const debouncedSearchText = useDebounce(searchText, 300);
   
   const { 
     data: tenantsData, 
@@ -39,7 +107,7 @@ export default function TenantsScreen() {
     refetch,
     isRefetching,
   } = useTenants({ 
-    searchText: searchText || undefined,
+    searchText: debouncedSearchText || undefined,
     take: 500,
   });
   
@@ -176,9 +244,12 @@ export default function TenantsScreen() {
         onPress={() => handleTenantPress(tenant)}
       >
         <View style={styles.tenantHeader}>
-          <View style={styles.tenantIcon}>
-            <Ionicons name="business" size={20} color={colors.brand.primary} />
-          </View>
+          <TenantLogo 
+            tenantId={tenant.Id}
+            serverUrl={credentials?.serverUrl || null}
+            spaceId={credentials?.spaceId || null}
+            apiKey={credentials?.apiKey || null}
+          />
           <View style={styles.tenantInfo}>
             <View style={styles.tenantTopRow}>
               <Text style={styles.tenantName} numberOfLines={1}>
@@ -416,6 +487,13 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: spacing.sm,
+  },
+  tenantLogoImage: {
+    width: 40,
+    height: 40,
+    borderRadius: borderRadius.sm,
+    marginRight: spacing.sm,
+    backgroundColor: colors.background.tertiary,
   },
   tenantInfo: {
     flex: 1,
