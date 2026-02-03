@@ -759,6 +759,45 @@ export interface PackageVersion {
 }
 
 // ============================================================================
+// Interruptions (Manual Interventions, Guided Failures)
+// ============================================================================
+
+export interface Interruption extends OctopusResource {
+  Title: string;
+  Created: string;
+  IsPending: boolean;
+  Form: InterruptionForm | null;
+  RelatedDocumentIds: string[];
+  ResponsibleTeamIds: string[];
+  ResponsibleUserId: string | null;
+  CanTakeResponsibility: boolean;
+  HasResponsibility: boolean;
+  TaskId: string;
+  CorrelationId: string;
+  IsLinkedToOtherInterruption: boolean;
+  SpaceId: string;
+}
+
+export interface InterruptionForm {
+  Values: Record<string, string>;
+  Elements: InterruptionFormElement[];
+}
+
+export interface InterruptionFormElement {
+  Name: string;
+  Control: InterruptionFormControl;
+  IsValueRequired: boolean;
+}
+
+export interface InterruptionFormControl {
+  Type: 'Paragraph' | 'TextArea' | 'VariableValue' | 'Select';
+  Text?: string;
+  Label?: string;
+  Description?: string;
+  Options?: { Value: string; Text: string }[];
+}
+
+// ============================================================================
 // Deployment Preview (for promotion)
 // ============================================================================
 

@@ -44,6 +44,7 @@ import type {
   PackageVersion,
   SelectedPackageVersion,
   DeploymentPreviewResponse,
+  Interruption,
 } from './types';
 
 // Constants
@@ -131,6 +132,61 @@ const createClient = async (): Promise<{ client: AxiosInstance; spaceId: string 
   );
 
   return { client, spaceId };
+};
+
+/**
+ * Creates an API client for specific credentials (used for cross-instance polling)
+ * This doesn't use stored credentials - uses the provided ones directly
+ */
+const createClientForCredentials = (
+  serverUrl: string,
+  apiKey: string,
+  instanceName?: string
+): AxiosInstance => {
+  const client = axios.create({
+    baseURL: serverUrl,
+    timeout: REQUEST_TIMEOUT,
+    headers: {
+      'X-Octopus-ApiKey': apiKey,
+      'Content-Type': 'application/json',
+      'Accept': 'application/json',
+    },
+  });
+
+  // Extract hostname for logging
+  const host = instanceName || new URL(serverUrl).hostname;
+
+  // Request interceptor - logging for cross-instance calls
+  client.interceptors.request.use(
+    (config) => {
+      if (__DEV__) {
+        console.log(`[API:${host}] ${config.method?.toUpperCase()} ${config.url}`);
+      }
+      return config;
+    },
+    (error) => {
+      return Promise.reject(error);
+    }
+  );
+
+  // Response interceptor - error handling with logging
+  client.interceptors.response.use(
+    (response) => {
+      if (__DEV__) {
+        console.log(`[API:${host}] Response ${response.status} from ${response.config.url}`);
+      }
+      return response;
+    },
+    (error: AxiosError<ApiError>) => {
+      if (__DEV__) {
+        const errorMsg = error.response?.data?.ErrorMessage || error.message;
+        console.log(`[API:${host}] Error ${error.response?.status || 'network'} from ${error.config?.url}: ${errorMsg}`);
+      }
+      return Promise.reject(transformError(error));
+    }
+  );
+
+  return client;
 };
 
 /**
@@ -670,20 +726,26 @@ export const getTaskRaw = async (taskId: string): Promise<string> => {
 
 /**
  * Gets pending interruptions for a task
+ * Uses the space-scoped interruptions endpoint with a regarding filter
  */
-export const getTaskInterruptions = async (taskId: string): Promise<any[]> => {
+export const getTaskInterruptions = async (taskId: string): Promise<Interruption[]> => {
   return withRetry(async () => {
-    const { client } = await createClient();
-    const response = await client.get<{ Items: any[] }>(
-      `/api/tasks/${sanitizePathSegment(taskId)}/interruptions`
+    const { client, spaceId } = await createClient();
+    const params = new URLSearchParams();
+    params.append('regarding', sanitizePathSegment(taskId));
+    params.append('pendingOnly', 'true');
+    
+    const response = await client.get<PaginatedResponse<Interruption>>(
+      `${spacePath(spaceId, '/interruptions')}?${params.toString()}`
     );
-    return response.data.Items;
+    return response.data?.Items ?? [];
   });
 };
 
 /**
  * Submit interruption response (for guided failure, manual intervention)
- */
+ *  
+ * */
 export const submitInterruption = async (
   interruptionId: string,
   action: 'Proceed' | 'Abort' | 'Fail' | 'Retry' | 'Ignore' | 'Exclude',
@@ -691,12 +753,40 @@ export const submitInterruption = async (
 ): Promise<void> => {
   return withRetry(async () => {
     const { client, spaceId } = await createClient();
+    
+    // First, get the interruption to retrieve its Form
+    const interruptionResponse = await client.get<Interruption>(
+      spacePath(spaceId, `/interruptions/${sanitizePathSegment(interruptionId)}`)
+    );
+    const interruption = interruptionResponse.data;
+    
+    // Get the form values
+    const form = interruption.Form;
+    if (!form) {
+      throw new Error('Interruption has no form to submit');
+    }
+    
+    // Determine the correct field name for the action
+    const hasGuidanceField = form.Values && 'Guidance' in form.Values;
+    const fieldName = hasGuidanceField ? 'Guidance' : 'Result';
+    
+    // Build the submission payload - ONLY the Values, not the entire form
+    const submissionPayload: Record<string, string | null> = {
+      ...form.Values,
+      [fieldName]: action,
+    };
+    
+    // Add notes if provided
+    if (notes) {
+      submissionPayload.Notes = notes;
+    }
+    
+    console.log('[API] Submitting values only:', JSON.stringify(submissionPayload, null, 2));
+    
+    // Submit just the values
     await client.post(
       spacePath(spaceId, `/interruptions/${sanitizePathSegment(interruptionId)}/submit`),
-      {
-        Action: action,
-        Notes: notes,
-      }
+      submissionPayload
     );
   });
 };
@@ -707,9 +797,43 @@ export const submitInterruption = async (
 export const takeResponsibility = async (interruptionId: string): Promise<void> => {
   return withRetry(async () => {
     const { client, spaceId } = await createClient();
-    await client.post(
+    await client.put(
       spacePath(spaceId, `/interruptions/${sanitizePathSegment(interruptionId)}/responsible`)
     );
+  });
+};
+
+/**
+ * Gets all pending interruptions across all tasks
+ */
+export const getPendingInterruptions = async (options?: {
+  regardingDocumentId?: string;
+}): Promise<Interruption[]> => {
+  return withRetry(async () => {
+    const { client, spaceId } = await createClient();
+    const params = new URLSearchParams();
+    params.append('pendingOnly', 'true');
+    
+    if (options?.regardingDocumentId) {
+      params.append('regarding', options.regardingDocumentId);
+    }
+
+    const url = `${spacePath(spaceId, '/interruptions')}?${params.toString()}`;
+    const response = await client.get<PaginatedResponse<Interruption>>(url);
+    return response.data?.Items ?? [];
+  });
+};
+
+/**
+ * Gets a specific interruption by ID
+ */
+export const getInterruption = async (interruptionId: string): Promise<Interruption> => {
+  return withRetry(async () => {
+    const { client, spaceId } = await createClient();
+    const response = await client.get<Interruption>(
+      spacePath(spaceId, `/interruptions/${sanitizePathSegment(interruptionId)}`)
+    );
+    return response.data;
   });
 };
 
@@ -1190,7 +1314,6 @@ export interface KubernetesLiveStatusResponse {
 
 /**
  * Gets the Kubernetes live status for a project/environment
- * Uses the correct endpoint: /projects/{projectId}/environments/{environmentId}/untenanted/livestatus
  */
 export const getKubernetesLiveStatus = async (
   projectId: string,
@@ -1519,7 +1642,7 @@ export const globalSearch = async (
 
   const projects = projectsResult.status === 'fulfilled' ? projectsResult.value?.Items || [] : [];
   
-  // Get releases - use API search results, or filter if API doesn't support search
+  // Get releases
   let releases: Release[] = [];
   if (releasesResult.status === 'fulfilled') {
     const releaseItems = releasesResult.value?.Items || [];
@@ -1611,7 +1734,7 @@ export const getTenantLogoUrl = async (tenantId: string): Promise<string | null>
 };
 
 /**
- * Synchronous helper to build tenant logo URL (requires pre-fetched credentials)
+ * Synchronous helper to build tenant logo URL
  */
 export const buildTenantLogoUrl = (
   serverUrl: string,
@@ -1624,4 +1747,177 @@ export const buildTenantLogoUrl = (
     : `${serverUrl}/api/tenants/${sanitizePathSegment(tenantId)}/logo`;
   
   return `${baseUrl}?apiKey=${apiKey}`;
+};
+
+// ============================================================================
+// Cross-Instance Polling Functions
+// These functions support polling interventions across all instances and spaces
+// ============================================================================
+
+export interface InstanceCredentials {
+  instanceId: string;
+  instanceName: string;
+  serverUrl: string;
+  apiKey: string;
+}
+
+export interface SpaceInfo {
+  id: string;
+  name: string;
+}
+
+export interface CrossInstanceInterruption {
+  interruption: Interruption;
+  instanceId: string;
+  instanceName: string;
+  spaceId: string;
+  spaceName: string;
+}
+
+/**
+ * Gets all spaces accessible to the user for a specific instance
+ */
+export const getSpacesForInstance = async (
+  credentials: InstanceCredentials
+): Promise<SpaceInfo[]> => {
+  try {
+    const client = createClientForCredentials(credentials.serverUrl, credentials.apiKey, credentials.instanceName);
+    const response = await client.get<PaginatedResponse<Space>>('/api/spaces?take=100');
+    
+    return response.data.Items.map(space => ({
+      id: space.Id,
+      name: space.Name,
+    }));
+  } catch (error) {
+    console.warn(`Failed to get spaces for instance ${credentials.instanceName}:`, error);
+    return [];
+  }
+};
+
+/**
+ * Gets pending interruptions for a specific space on a specific instance
+ */
+export const getInterruptionsForInstanceSpace = async (
+  credentials: InstanceCredentials,
+  spaceId: string
+): Promise<Interruption[]> => {
+  try {
+    const client = createClientForCredentials(credentials.serverUrl, credentials.apiKey, credentials.instanceName);
+    const response = await client.get<PaginatedResponse<Interruption>>(
+      `/api/${sanitizePathSegment(spaceId)}/interruptions?pendingOnly=true`
+    );
+    
+    return response.data?.Items ?? [];
+  } catch (error) {
+    // Silently fail for individual spaces - might not have access
+    return [];
+  }
+};
+
+/**
+ * Gets all pending interruptions across all instances and spaces
+ * This is the main function for cross-instance polling
+ */
+export const getAllPendingInterruptions = async (
+  instanceCredentials: InstanceCredentials[]
+): Promise<CrossInstanceInterruption[]> => {
+  const allInterruptions: CrossInstanceInterruption[] = [];
+  
+  // Process each instance
+  await Promise.all(
+    instanceCredentials.map(async (credentials) => {
+      try {
+        // Get all spaces for this instance
+        const spaces = await getSpacesForInstance(credentials);
+        
+        // Get interruptions for each space in parallel
+        const spaceResults = await Promise.all(
+          spaces.map(async (space) => {
+            const interruptions = await getInterruptionsForInstanceSpace(credentials, space.id);
+            return interruptions.map(interruption => ({
+              interruption,
+              instanceId: credentials.instanceId,
+              instanceName: credentials.instanceName,
+              spaceId: space.id,
+              spaceName: space.name,
+            }));
+          })
+        );
+        
+        // Flatten and add to results
+        spaceResults.forEach(results => {
+          allInterruptions.push(...results);
+        });
+      } catch (error) {
+        console.warn(`Failed to poll instance ${credentials.instanceName}:`, error);
+      }
+    })
+  );
+  
+  // Sort by creation date (newest first)
+  allInterruptions.sort((a, b) => 
+    new Date(b.interruption.Created).getTime() - new Date(a.interruption.Created).getTime()
+  );
+  
+  return allInterruptions;
+};
+
+/**
+ * Submit an interruption response for a specific instance
+ */
+export const submitInterruptionForInstance = async (
+  credentials: InstanceCredentials,
+  spaceId: string,
+  interruptionId: string,
+  action: 'Proceed' | 'Abort' | 'Fail' | 'Retry' | 'Ignore' | 'Exclude',
+  notes?: string
+): Promise<void> => {
+  const client = createClientForCredentials(credentials.serverUrl, credentials.apiKey, credentials.instanceName);
+  
+  // First, get the interruption to retrieve its Form
+  const interruptionResponse = await client.get<Interruption>(
+    `/api/${sanitizePathSegment(spaceId)}/interruptions/${sanitizePathSegment(interruptionId)}`
+  );
+  const interruption = interruptionResponse.data;
+  
+  // Get the form values
+  const form = interruption.Form;
+  if (!form) {
+    throw new Error('Interruption has no form to submit');
+  }
+  
+  // Determine the correct field name
+  const hasGuidanceField = form.Values && 'Guidance' in form.Values;
+  const fieldName = hasGuidanceField ? 'Guidance' : 'Result';
+  
+  // Build the submission payload
+  const submissionPayload: Record<string, string | null> = {
+    ...form.Values,
+    [fieldName]: action,
+  };
+  
+  if (notes) {
+    submissionPayload.Notes = notes;
+  }
+  
+  // Submit
+  await client.post(
+    `/api/${sanitizePathSegment(spaceId)}/interruptions/${sanitizePathSegment(interruptionId)}/submit`,
+    submissionPayload
+  );
+};
+
+/**
+ * Take responsibility for an interruption on a specific instance
+ */
+export const takeResponsibilityForInstance = async (
+  credentials: InstanceCredentials,
+  spaceId: string,
+  interruptionId: string
+): Promise<void> => {
+  const client = createClientForCredentials(credentials.serverUrl, credentials.apiKey, credentials.instanceName);
+  
+  await client.put(
+    `/api/${sanitizePathSegment(spaceId)}/interruptions/${sanitizePathSegment(interruptionId)}/responsible`
+  );
 };

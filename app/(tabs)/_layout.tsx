@@ -4,7 +4,7 @@
  */
 
 import React, { useCallback } from 'react';
-import { View, Pressable, Text, Platform } from 'react-native';
+import { View, Pressable, Text, Platform, StyleSheet } from 'react-native';
 import { Tabs, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
@@ -14,7 +14,8 @@ import { useAuth } from '../../src/context/AuthContext';
 import { useColors } from '../../src/context/ThemeContext';
 import { DrawerProvider, useDrawer } from '../../src/context/DrawerContext';
 import { useTabCustomization } from '../../src/context/TabCustomizationContext';
-import { fontSize, spacing } from '../../src/theme/spacing';
+import { useNotifications } from '../../src/context/NotificationsContext';
+import { fontSize, spacing, borderRadius } from '../../src/theme/spacing';
 
 type IconName = keyof typeof Ionicons.glyphMap;
 
@@ -31,6 +32,7 @@ function TabsLayoutContent() {
   const colors = useColors();
   const { isDrawerOpen, openDrawer, closeDrawer } = useDrawer();
   const { selectedTabs } = useTabCustomization();
+  const { totalCount: notificationCount } = useNotifications();
   
   const handleOpenDrawer = useCallback(() => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -40,6 +42,11 @@ function TabsLayoutContent() {
   const goToSettings = useCallback(() => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     router.push('/settings');
+  }, [router]);
+
+  const goToNotifications = useCallback(() => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    router.push('/notifications' as any);
   }, [router]);
   
   // Icons only, purple when active
@@ -71,9 +78,32 @@ function TabsLayoutContent() {
     </Pressable>
   );
 
+  // Notification bell button with badge
+  const NotificationButton = () => (
+    <Pressable 
+      onPress={goToNotifications}
+      style={headerStyles.notificationButton}
+      hitSlop={8}
+    >
+      <Ionicons 
+        name={notificationCount > 0 ? 'notifications' : 'notifications-outline'} 
+        size={22} 
+        color={notificationCount > 0 ? colors.brand.primary : colors.text.secondary} 
+      />
+      {notificationCount > 0 && (
+        <View style={[headerStyles.badge, { backgroundColor: colors.status.error }]}>
+          <Text style={headerStyles.badgeText}>
+            {notificationCount > 9 ? '9+' : notificationCount}
+          </Text>
+        </View>
+      )}
+    </Pressable>
+  );
+
   // Settings cog button for header right  
   const HeaderRight = () => (
     <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.xs }}>
+      <NotificationButton />
       <MenuButton />
       <Pressable 
         onPress={goToSettings}
@@ -312,6 +342,29 @@ function TabsLayoutContent() {
     </>
   );
 }
+
+const headerStyles = StyleSheet.create({
+  notificationButton: {
+    padding: spacing.sm,
+    position: 'relative',
+  },
+  badge: {
+    position: 'absolute',
+    top: 4,
+    right: 4,
+    minWidth: 16,
+    height: 16,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 4,
+  },
+  badgeText: {
+    color: '#FFFFFF',
+    fontSize: 10,
+    fontWeight: '700',
+  },
+});
 
 export default function TabsLayout() {
   return (

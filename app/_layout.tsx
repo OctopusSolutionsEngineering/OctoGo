@@ -26,6 +26,7 @@ import { AuthProvider, useAuth } from '../src/context/AuthContext';
 import { FavoritesProvider } from '../src/context/FavoritesContext';
 import { ThemeProvider, useTheme } from '../src/context/ThemeContext';
 import { TabCustomizationProvider } from '../src/context/TabCustomizationContext';
+import { NotificationsProvider } from '../src/context/NotificationsContext';
 import { LoadingScreen } from '../src/components/ui/LoadingScreen';
 import { spacing } from '../src/theme/spacing';
 
@@ -125,6 +126,7 @@ function ThemedApp() {
           <Stack.Screen name="runbook/[id]" options={{ title: 'Runbook' }} />
           <Stack.Screen name="task/[id]" options={{ title: 'Task' }} />
           <Stack.Screen name="tenant/[id]" options={{ title: 'Tenant' }} />
+          <Stack.Screen name="notifications" options={{ title: 'Notifications' }} />
         </Stack>
       </AuthGate>
     </View>
@@ -190,7 +192,9 @@ export default function RootLayout() {
             <AuthProvider>
               <FavoritesProvider>
                 <TabCustomizationProvider>
-                  <ThemedApp />
+                  <NotificationsProvider>
+                    <ThemedApp />
+                  </NotificationsProvider>
                 </TabCustomizationProvider>
               </FavoritesProvider>
             </AuthProvider>

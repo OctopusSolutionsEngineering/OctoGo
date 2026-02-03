@@ -129,27 +129,69 @@ export default function ProjectDetailScreen() {
       phase.OptionalDeploymentTargets?.forEach(envId => validEnvIds.add(envId));
     });
     
+    // If the lifecycle has phases but no explicit environment targets defined,
+    // this usually means the lifecycle uses implicit/auto environment targeting.
+    // Return null to show all environments from the project summary.
+    if (validEnvIds.size === 0 && lifecycle.Phases.length > 0) {
+      return null;
+    }
+    
     return validEnvIds;
   }, [lifecycle, hasChannelLifecycleOverride]);
 
   // Only show environments that are in the project's lifecycle
+  // Uses projectSummary.Environments as primary source, with allEnvironments as fallback
   const sortedEnvironments = useMemo(() => {
-    if (!projectSummary?.Environments) return [];
+    // Primary source: environments from the project dashboard
+    // Fallback: all environments in the space (filtered by lifecycle if available)
+    const summaryEnvs = projectSummary?.Environments || [];
     
-    // If channels have lifecycle overrides, show all environments
-    // because different releases/channels may use different lifecycles
-    if (lifecycleEnvironmentIds === null) {
-      return projectSummary.Environments;
+    // If project summary has environments, use those
+    if (summaryEnvs.length > 0) {
+      // If channels have lifecycle overrides, or lifecycle uses implicit targeting,
+      // show all environments from the project summary
+      if (lifecycleEnvironmentIds === null) {
+        return summaryEnvs;
+      }
+      
+      // If lifecycle hasn't loaded yet, show all environments as fallback
+      if (!lifecycle?.Phases) {
+        return summaryEnvs;
+      }
+      
+      // Filter to only environments in the lifecycle
+      const filtered = summaryEnvs.filter(env => 
+        lifecycleEnvironmentIds.has(env.Id)
+      );
+      
+      // If filtering results in zero environments, fall back to all summary environments
+      if (filtered.length === 0) {
+        return summaryEnvs;
+      }
+      
+      return filtered;
     }
     
-    // If lifecycle hasn't loaded yet, don't show any environments
-    if (!lifecycle?.Phases) return [];
+    // Fallback: use allEnvironments when projectSummary.Environments is empty
+    // This can happen when a project has no deployment history yet
+    if (!allEnvironments || allEnvironments.length === 0) {
+      return [];
+    }
     
-    // Filter to only environments in the lifecycle
-    return projectSummary.Environments.filter(env => 
-      lifecycleEnvironmentIds.has(env.Id)
-    );
-  }, [projectSummary, lifecycleEnvironmentIds, lifecycle]);
+    // Convert allEnvironments to DashboardEnvironment format (just Id and Name)
+    const envs = allEnvironments.map(env => ({ Id: env.Id, Name: env.Name }));
+    
+    // If we have lifecycle info, filter by lifecycle
+    if (lifecycleEnvironmentIds !== null && lifecycleEnvironmentIds.size > 0) {
+      const filtered = envs.filter(env => lifecycleEnvironmentIds.has(env.Id));
+      // If filtering results in something, use it; otherwise show all
+      if (filtered.length > 0) {
+        return filtered;
+      }
+    }
+    
+    return envs;
+  }, [projectSummary, lifecycleEnvironmentIds, lifecycle, allEnvironments]);
 
   // Build deployment matrix from deployments endpoint
   // Map<ReleaseId, Map<EnvironmentId, DeploymentInfo>>

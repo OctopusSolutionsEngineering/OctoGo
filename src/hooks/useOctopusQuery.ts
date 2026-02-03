@@ -25,6 +25,8 @@ import {
   getTaskInterruptions,
   submitInterruption,
   takeResponsibility,
+  getPendingInterruptions,
+  getInterruption,
   getMachines,
   getMachine,
   triggerMachineHealthCheck,
@@ -87,6 +89,7 @@ import type {
   PackageVersion,
   DeploymentPreviewResponse,
   SelectedPackageVersion,
+  Interruption,
 } from '../lib/api/types';
 
 // Query key factory for consistent cache keys
@@ -139,6 +142,11 @@ export const queryKeys = {
   taskDetails: (id: string) => [...queryKeys.task(id), 'details'] as const,
   taskRaw: (id: string) => [...queryKeys.task(id), 'raw'] as const,
   taskInterruptions: (id: string) => [...queryKeys.task(id), 'interruptions'] as const,
+  
+  // Interruptions (for notifications)
+  interruptions: () => [...queryKeys.all, 'interruptions'] as const,
+  pendingInterruptions: () => [...queryKeys.interruptions(), 'pending'] as const,
+  interruption: (id: string) => [...queryKeys.interruptions(), id] as const,
   
   // Machines
   machines: () => [...queryKeys.all, 'machines'] as const,
@@ -387,11 +395,11 @@ export const useTasks = (params?: {
   });
 };
 
-export const useTask = (taskId: string, options?: { refetchInterval?: number }) => {
+export const useTask = (taskId: string, options?: { refetchInterval?: number; enabled?: boolean }) => {
   return useQuery<Task, OctopusApiError>({
     queryKey: queryKeys.task(taskId),
     queryFn: () => getTask(taskId),
-    enabled: !!taskId,
+    enabled: options?.enabled !== false && !!taskId,
     staleTime: 10 * 1000, // 10 seconds
     refetchInterval: options?.refetchInterval ?? 10 * 1000, // Default: refetch every 10 seconds
   });
@@ -434,13 +442,12 @@ export const useTaskRaw = (taskId: string, options?: { enabled?: boolean; refetc
 };
 
 export const useTaskInterruptions = (taskId: string, options?: { enabled?: boolean; refetchInterval?: number | false }) => {
-  return useQuery<any[], OctopusApiError>({
+  return useQuery<Interruption[], OctopusApiError>({
     queryKey: queryKeys.taskInterruptions(taskId),
     queryFn: () => getTaskInterruptions(taskId),
     enabled: options?.enabled !== false && !!taskId,
     staleTime: 5 * 1000,
     refetchInterval: options?.refetchInterval,
-    // Don't retry on 404 errors - the endpoint may not exist for this task
     retry: (failureCount, error) => {
       if (error?.statusCode === 404) return false;
       return failureCount < 2;
@@ -460,6 +467,7 @@ export const useSubmitInterruption = () => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.tasks() });
       queryClient.invalidateQueries({ queryKey: queryKeys.dashboard() });
+      queryClient.invalidateQueries({ queryKey: queryKeys.pendingInterruptions() });
     },
   });
 };
@@ -471,7 +479,46 @@ export const useTakeResponsibility = () => {
     mutationFn: takeResponsibility,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.tasks() });
+      queryClient.invalidateQueries({ queryKey: queryKeys.pendingInterruptions() });
     },
+  });
+};
+
+// ============================================================================
+// Pending Interruptions (for notifications)
+// ============================================================================
+
+/**
+ * Gets all pending interruptions across all tasks
+ * Used for the notification system to show interventions that need attention
+ */
+export const usePendingInterruptions = (options?: {
+  enabled?: boolean;
+  refetchInterval?: number | false;
+}) => {
+  return useQuery<Interruption[], OctopusApiError>({
+    queryKey: queryKeys.pendingInterruptions(),
+    queryFn: () => getPendingInterruptions(),
+    enabled: options?.enabled !== false,
+    staleTime: 15 * 1000, // 15 seconds - interruptions can appear frequently
+    refetchInterval: options?.refetchInterval ?? 30 * 1000, // Refetch every 30 seconds by default
+    retry: (failureCount, error) => {
+      // Don't retry on 404 (endpoint may not exist in some versions)
+      if (error?.statusCode === 404) return false;
+      return failureCount < 2;
+    },
+  });
+};
+
+/**
+ * Gets a specific interruption by ID
+ */
+export const useInterruption = (interruptionId: string, options?: { enabled?: boolean }) => {
+  return useQuery<Interruption, OctopusApiError>({
+    queryKey: queryKeys.interruption(interruptionId),
+    queryFn: () => getInterruption(interruptionId),
+    enabled: options?.enabled !== false && !!interruptionId,
+    staleTime: 10 * 1000,
   });
 };
 

@@ -309,6 +309,77 @@ export const getInstanceApiKey = async (instanceId: string): Promise<string | nu
 };
 
 /**
+ * Gets full credentials for a specific instance
+ * Used for cross-instance API calls
+ */
+export const getInstanceCredentials = async (instanceId: string): Promise<{
+  serverUrl: string;
+  apiKey: string;
+  spaceId: string | null;
+  instanceName: string;
+} | null> => {
+  try {
+    const instances = await getInstances();
+    const instance = instances.find(i => i.id === instanceId);
+    
+    if (!instance) {
+      return null;
+    }
+    
+    const apiKey = await getInstanceApiKey(instanceId);
+    if (!apiKey) {
+      return null;
+    }
+    
+    return {
+      serverUrl: instance.serverUrl,
+      apiKey,
+      spaceId: instance.spaceId || null,
+      instanceName: instance.name,
+    };
+  } catch (error) {
+    console.error('Failed to get instance credentials:', error);
+    return null;
+  }
+};
+
+/**
+ * Gets credentials for all configured instances
+ * Used for cross-instance polling
+ */
+export const getAllInstanceCredentials = async (): Promise<Array<{
+  instanceId: string;
+  serverUrl: string;
+  apiKey: string;
+  spaceId: string | null;
+  instanceName: string;
+}>> => {
+  try {
+    const instances = await getInstances();
+    const credentials = await Promise.all(
+      instances.map(async (instance) => {
+        const apiKey = await getInstanceApiKey(instance.id);
+        if (!apiKey) return null;
+        
+        return {
+          instanceId: instance.id,
+          serverUrl: instance.serverUrl,
+          apiKey,
+          spaceId: instance.spaceId || null,
+          instanceName: instance.name,
+        };
+      })
+    );
+    
+    // Filter out null values (instances without valid credentials)
+    return credentials.filter((c): c is NonNullable<typeof c> => c !== null);
+  } catch (error) {
+    console.error('Failed to get all instance credentials:', error);
+    return [];
+  }
+};
+
+/**
  * Stores a new instance with credentials
  */
 export const addInstance = async (

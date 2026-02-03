@@ -13,6 +13,7 @@ import {
   Pressable,
   Alert,
   TextInput,
+  Modal,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, Stack, useRouter } from 'expo-router';
@@ -400,7 +401,7 @@ const TaskContextCard: React.FC<TaskContextCardProps> = ({ task, onNavigate }) =
   );
 };
 
-// Intervention component for handling guided failures
+// Intervention component for handling guided failures and manual interventions
 interface InterventionCardProps {
   interruption: any;
   onSubmit: (action: 'Proceed' | 'Abort' | 'Fail' | 'Retry' | 'Ignore' | 'Exclude', notes?: string) => void;
@@ -416,60 +417,117 @@ const InterventionCard: React.FC<InterventionCardProps> = ({
 }) => {
   const [notes, setNotes] = useState('');
   const [showNotes, setShowNotes] = useState(false);
+  const [confirmAction, setConfirmAction] = useState<{
+    key: 'Proceed' | 'Abort' | 'Fail' | 'Retry' | 'Ignore' | 'Exclude';
+    label: string;
+    color: string;
+  } | null>(null);
+  
+  const isGuidedFailure = interruption.Form?.Values?.Guidance === 'GuidedFailure';
+  const needsResponsibility = interruption.CanTakeResponsibility && !interruption.ResponsibleUserId;
+
+  const handleConfirmAction = () => {
+    if (confirmAction) {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+      onSubmit(confirmAction.key, notes || undefined);
+      setConfirmAction(null);
+    }
+  };
+
+  const getConfirmationMessage = (actionKey: string) => {
+    switch (actionKey) {
+      case 'Proceed':
+        return 'This will approve the manual intervention and allow the deployment to continue.';
+      case 'Abort':
+        return 'This will reject the intervention and abort the deployment. This action cannot be undone.';
+      case 'Fail':
+        return 'This will mark the step as failed and stop the deployment.';
+      case 'Retry':
+        return 'This will retry the failed step.';
+      case 'Ignore':
+        return 'This will ignore the failure and continue with the deployment.';
+      case 'Exclude':
+        return 'This will exclude the machine and continue with the deployment.';
+      default:
+        return 'Are you sure you want to continue?';
+    }
+  };
 
   const getActions = () => {
     // Default actions for guided failure
-    const actions: { key: 'Proceed' | 'Abort' | 'Fail' | 'Retry' | 'Ignore' | 'Exclude'; label: string; color: string }[] = [];
+    const actions: { key: 'Proceed' | 'Abort' | 'Fail' | 'Retry' | 'Ignore' | 'Exclude'; label: string; color: string; variant: 'primary' | 'danger' | 'secondary' }[] = [];
     
-    if (interruption.CanTakeResponsibility && !interruption.ResponsibleUserId) {
+    if (needsResponsibility) {
       return null; // Show take responsibility first
     }
     
     // Add available actions based on interruption type
-    if (interruption.Form?.Values?.Guidance === 'GuidedFailure') {
-      actions.push({ key: 'Fail', label: 'Fail', color: colors.status.error });
-      actions.push({ key: 'Retry', label: 'Retry', color: colors.status.warning });
-      actions.push({ key: 'Ignore', label: 'Ignore', color: colors.text.secondary });
-      actions.push({ key: 'Exclude', label: 'Exclude Machine', color: colors.text.secondary });
+    if (isGuidedFailure) {
+      actions.push({ key: 'Retry', label: 'Retry', color: colors.status.warning, variant: 'primary' });
+      actions.push({ key: 'Fail', label: 'Fail', color: colors.status.error, variant: 'danger' });
+      actions.push({ key: 'Ignore', label: 'Ignore', color: colors.text.secondary, variant: 'secondary' });
+      actions.push({ key: 'Exclude', label: 'Exclude Machine', color: colors.text.secondary, variant: 'secondary' });
     } else {
-      actions.push({ key: 'Proceed', label: 'Proceed', color: colors.status.success });
-      actions.push({ key: 'Abort', label: 'Abort', color: colors.status.error });
+      // Manual intervention - Proceed (approve) and Abort (deny)
+      actions.push({ key: 'Proceed', label: 'Approve', color: colors.status.success, variant: 'primary' });
+      actions.push({ key: 'Abort', label: 'Reject', color: colors.status.error, variant: 'danger' });
     }
     
     return actions;
   };
 
   const actions = getActions();
+  const typeLabel = isGuidedFailure ? 'Guided Failure' : 'Manual Intervention';
+  const typeIcon = isGuidedFailure ? 'warning' : 'hand-left';
+  const typeColor = isGuidedFailure ? colors.status.warning : colors.brand.primary;
 
   return (
-    <Card style={styles.interventionCard}>
+    <Card style={[
+      styles.interventionCard, 
+      isGuidedFailure ? styles.guidedFailureCard : styles.manualInterventionCardStyle
+    ]}>
       <View style={styles.interventionHeader}>
-        <Ionicons name="alert-circle" size={24} color={colors.status.warning} />
-        <Text style={styles.interventionTitle}>Intervention Required</Text>
+        <View style={[styles.interventionTypeIcon, { backgroundColor: typeColor + '20' }]}>
+          <Ionicons name={typeIcon} size={20} color={typeColor} />
+        </View>
+        <View style={styles.interventionHeaderText}>
+          <Text style={styles.interventionTypeLabel}>{typeLabel}</Text>
+          <Text style={styles.interventionTitle}>
+            {interruption.Title || 'This task requires intervention to continue.'}
+          </Text>
+        </View>
       </View>
       
-      <Text style={styles.interventionMessage}>
-        {interruption.Title || 'This task requires manual intervention to continue.'}
-      </Text>
-      
+      {/* Form elements with better styling */}
       {interruption.Form?.Elements?.map((element: any, index: number) => (
         <View key={index} style={styles.interventionElement}>
           {element.Control?.Type === 'Paragraph' && (
-            <Text style={styles.interventionText}>
-              {element.Control.Text}
-            </Text>
+            <View style={styles.interventionTextContainer}>
+              <Text style={styles.interventionText}>
+                {element.Control.Text}
+              </Text>
+            </View>
           )}
         </View>
       ))}
 
-      {!interruption.ResponsibleUserId && interruption.CanTakeResponsibility && (
-        <Button
-          title="Take Responsibility"
-          onPress={onTakeResponsibility}
-          variant="primary"
-          loading={isSubmitting}
-          style={styles.interventionButton}
-        />
+      {/* Take responsibility section */}
+      {needsResponsibility && (
+        <View style={styles.responsibilitySection}>
+          <View style={styles.responsibilityNotice}>
+            <Ionicons name="person-outline" size={16} color={colors.status.info} />
+            <Text style={styles.responsibilityNoticeText}>
+              Take responsibility to unlock approval actions
+            </Text>
+          </View>
+          <Button
+            title="Take Responsibility"
+            onPress={onTakeResponsibility}
+            variant="primary"
+            loading={isSubmitting}
+            style={styles.interventionButton}
+          />
+        </View>
       )}
 
       {actions && (
@@ -478,20 +536,20 @@ const InterventionCard: React.FC<InterventionCardProps> = ({
             style={styles.notesToggle}
             onPress={() => setShowNotes(!showNotes)}
           >
-            <Text style={styles.notesToggleText}>
-              {showNotes ? 'Hide notes' : 'Add notes (optional)'}
-            </Text>
             <Ionicons 
-              name={showNotes ? 'chevron-up' : 'chevron-down'} 
+              name={showNotes ? 'chevron-up' : 'create-outline'} 
               size={16} 
               color={colors.text.tertiary} 
             />
+            <Text style={styles.notesToggleText}>
+              {showNotes ? 'Hide notes' : 'Add notes (optional)'}
+            </Text>
           </Pressable>
 
           {showNotes && (
             <TextInput
               style={styles.notesInput}
-              placeholder="Add notes..."
+              placeholder="Add notes about your decision..."
               placeholderTextColor={colors.text.tertiary}
               value={notes}
               onChangeText={setNotes}
@@ -504,13 +562,27 @@ const InterventionCard: React.FC<InterventionCardProps> = ({
             {actions.map((action) => (
               <Pressable
                 key={action.key}
-                style={[styles.actionButton, { backgroundColor: action.color + '20' }]}
+                style={[
+                  styles.actionButton, 
+                  { backgroundColor: action.color + '20' },
+                  action.variant === 'primary' && styles.actionButtonPrimary,
+                ]}
                 onPress={() => {
-                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-                  onSubmit(action.key, notes || undefined);
+                  Haptics.selectionAsync();
+                  setConfirmAction(action);
                 }}
                 disabled={isSubmitting}
               >
+                {action.variant === 'primary' && (
+                  <Ionicons 
+                    name={action.key === 'Proceed' ? 'checkmark-circle' : 'refresh'} 
+                    size={16} 
+                    color={action.color} 
+                  />
+                )}
+                {action.variant === 'danger' && (
+                  <Ionicons name="close-circle" size={16} color={action.color} />
+                )}
                 <Text style={[styles.actionButtonText, { color: action.color }]}>
                   {action.label}
                 </Text>
@@ -519,6 +591,80 @@ const InterventionCard: React.FC<InterventionCardProps> = ({
           </View>
         </>
       )}
+
+      {/* Confirmation Modal */}
+      <Modal
+        visible={!!confirmAction}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setConfirmAction(null)}
+      >
+        <Pressable 
+          style={styles.modalOverlay}
+          onPress={() => setConfirmAction(null)}
+        >
+          <Pressable style={styles.modalContent} onPress={(e) => e.stopPropagation()}>
+            <View style={styles.modalHeader}>
+              <View style={[
+                styles.modalIcon, 
+                { backgroundColor: (confirmAction?.color || colors.brand.primary) + '20' }
+              ]}>
+                <Ionicons 
+                  name={
+                    confirmAction?.key === 'Proceed' ? 'checkmark-circle' :
+                    confirmAction?.key === 'Abort' ? 'close-circle' :
+                    confirmAction?.key === 'Retry' ? 'refresh' :
+                    confirmAction?.key === 'Fail' ? 'alert-circle' :
+                    'help-circle'
+                  } 
+                  size={32} 
+                  color={confirmAction?.color || colors.brand.primary} 
+                />
+              </View>
+              <Text style={styles.modalTitle}>
+                Confirm {confirmAction?.label}
+              </Text>
+            </View>
+            
+            <Text style={styles.modalMessage}>
+              {confirmAction && getConfirmationMessage(confirmAction.key)}
+            </Text>
+
+            {notes && (
+              <View style={styles.modalNotesPreview}>
+                <Text style={styles.modalNotesLabel}>Your notes:</Text>
+                <Text style={styles.modalNotesText} numberOfLines={2}>{notes}</Text>
+              </View>
+            )}
+
+            <View style={styles.modalButtons}>
+              <Pressable
+                style={styles.modalCancelButton}
+                onPress={() => setConfirmAction(null)}
+              >
+                <Text style={styles.modalCancelButtonText}>Cancel</Text>
+              </Pressable>
+              
+              <Pressable
+                style={[
+                  styles.modalConfirmButton,
+                  { backgroundColor: confirmAction?.color || colors.brand.primary }
+                ]}
+                onPress={handleConfirmAction}
+                disabled={isSubmitting}
+              >
+                {isSubmitting ? (
+                  <Text style={styles.modalConfirmButtonText}>Processing...</Text>
+                ) : (
+                  <Text style={styles.modalConfirmButtonText}>
+                    {confirmAction?.label}
+                  </Text>
+                )}
+              </Pressable>
+            </View>
+          </Pressable>
+        </Pressable>
+      </Modal>
     </Card>
   );
 };
@@ -542,6 +688,7 @@ export default function TaskDetailScreen() {
   });
 
   const isTaskActive = isExecuting(task?.State);
+  const hasPendingInterruptions = task?.HasPendingInterruptions === true;
 
   // Only fetch raw logs when in raw view mode
   const { data: rawLogs, isLoading: rawLoading } = useTaskRaw(id!, {
@@ -549,10 +696,11 @@ export default function TaskDetailScreen() {
     refetchInterval: isTaskActive ? 3000 : false, // Live refresh only when executing
   });
 
-  // Fetch interruptions only if task has pending interruptions and is active
+  // Fetch interruptions if task has pending interruptions OR is in an active state
+  // We check both conditions because sometimes HasPendingInterruptions is true even when state shows Queued
   const { data: interruptions, refetch: refetchInterruptions } = useTaskInterruptions(id!, {
-    enabled: !!id && task?.HasPendingInterruptions === true && isTaskActive,
-    refetchInterval: isTaskActive ? 10000 : false,
+    enabled: !!id && (hasPendingInterruptions || isTaskActive),
+    refetchInterval: (hasPendingInterruptions || isTaskActive) ? 10000 : false,
   });
 
   const cancelMutation = useCancelTask();
@@ -734,10 +882,7 @@ export default function TaskDetailScreen() {
             )}
           </Card>
 
-          {/* Task Context - Project, Release, Environment, etc. */}
-          <TaskContextCard task={task} onNavigate={handleNavigate} />
-
-          {/* Pending Interruptions */}
+          {/* Pending Interruptions - show prominently at the top */}
           {interruptions && interruptions.length > 0 && (
             <View style={styles.section}>
               {interruptions.map((interruption) => (
@@ -751,6 +896,29 @@ export default function TaskDetailScreen() {
               ))}
             </View>
           )}
+
+          {/* Show a hint when task has pending interruptions but they haven't loaded yet */}
+          {hasPendingInterruptions && (!interruptions || interruptions.length === 0) && (
+            <Card style={styles.pendingInterventionHint}>
+              <View style={styles.interventionHeader}>
+                <View style={[styles.interventionTypeIcon, { backgroundColor: colors.brand.primary + '20' }]}>
+                  <Ionicons name="hand-left" size={20} color={colors.brand.primary} />
+                </View>
+                <View style={styles.interventionHeaderText}>
+                  <Text style={styles.interventionTypeLabel}>Intervention Pending</Text>
+                  <Text style={styles.interventionTitle}>
+                    This task is waiting for manual intervention
+                  </Text>
+                </View>
+              </View>
+              <Text style={styles.pendingHintText}>
+                Loading intervention details...
+              </Text>
+            </Card>
+          )}
+
+          {/* Task Context - Project, Release, Environment, etc. */}
+          <TaskContextCard task={task} onNavigate={handleNavigate} />
 
           {/* Timing Info */}
           <Card style={styles.contextCard}>
@@ -1166,21 +1334,46 @@ const styles = StyleSheet.create({
   // Intervention styles
   interventionCard: {
     padding: spacing.md,
-    backgroundColor: colors.status.warningDim,
     borderWidth: 1,
-    borderColor: colors.status.warning,
     marginBottom: spacing.md,
+  },
+  guidedFailureCard: {
+    backgroundColor: colors.status.warningDim,
+    borderColor: colors.status.warning + '60',
+  },
+  manualInterventionCardStyle: {
+    backgroundColor: colors.brand.primaryDim,
+    borderColor: colors.brand.primary + '60',
   },
   interventionHeader: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     gap: spacing.sm,
-    marginBottom: spacing.sm,
+    marginBottom: spacing.md,
+  },
+  interventionTypeIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  interventionHeaderText: {
+    flex: 1,
+    gap: spacing.xs,
+  },
+  interventionTypeLabel: {
+    color: colors.text.secondary,
+    fontSize: fontSize.xs,
+    fontWeight: '600',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
   },
   interventionTitle: {
     color: colors.text.primary,
     fontSize: fontSize.md,
-    fontWeight: '700',
+    fontWeight: '600',
+    lineHeight: 22,
   },
   interventionMessage: {
     color: colors.text.primary,
@@ -1190,10 +1383,36 @@ const styles = StyleSheet.create({
   interventionElement: {
     marginBottom: spacing.sm,
   },
+  interventionTextContainer: {
+    backgroundColor: colors.background.tertiary,
+    padding: spacing.md,
+    borderRadius: borderRadius.md,
+    borderLeftWidth: 3,
+    borderLeftColor: colors.text.tertiary,
+  },
   interventionText: {
     color: colors.text.secondary,
     fontSize: fontSize.sm,
     lineHeight: 20,
+  },
+  responsibilitySection: {
+    marginTop: spacing.sm,
+  },
+  responsibilityNotice: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    marginBottom: spacing.md,
+    padding: spacing.sm,
+    backgroundColor: colors.status.infoDim,
+    borderRadius: borderRadius.sm,
+    borderWidth: 1,
+    borderColor: colors.status.info + '30',
+  },
+  responsibilityNoticeText: {
+    flex: 1,
+    color: colors.text.secondary,
+    fontSize: fontSize.sm,
   },
   interventionButton: {
     marginTop: spacing.sm,
@@ -1203,6 +1422,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: spacing.xs,
     marginBottom: spacing.sm,
+    marginTop: spacing.md,
   },
   notesToggleText: {
     color: colors.text.tertiary,
@@ -1226,13 +1446,122 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
   },
   actionButton: {
+    flexDirection: 'row',
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
     borderRadius: borderRadius.md,
     minWidth: 80,
     alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.xs,
+  },
+  actionButtonPrimary: {
+    // Additional styling for primary actions
   },
   actionButtonText: {
+    fontSize: fontSize.sm,
+    fontWeight: '600',
+  },
+  pendingInterventionHint: {
+    padding: spacing.md,
+    backgroundColor: colors.brand.primaryDim,
+    borderWidth: 1,
+    borderColor: colors.brand.primary + '40',
+  },
+  pendingHintText: {
+    color: colors.text.secondary,
+    fontSize: fontSize.sm,
+    fontStyle: 'italic',
+    marginTop: spacing.sm,
+  },
+  // Confirmation Modal styles
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: spacing.lg,
+  },
+  modalContent: {
+    backgroundColor: colors.background.secondary,
+    borderRadius: borderRadius.lg,
+    padding: spacing.lg,
+    width: '100%',
+    maxWidth: 400,
+    borderWidth: 1,
+    borderColor: colors.border.muted,
+  },
+  modalHeader: {
+    alignItems: 'center',
+    marginBottom: spacing.md,
+  },
+  modalIcon: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: spacing.sm,
+  },
+  modalTitle: {
+    color: colors.text.primary,
+    fontSize: fontSize.lg,
+    fontWeight: '600',
+    textAlign: 'center',
+  },
+  modalMessage: {
+    color: colors.text.secondary,
+    fontSize: fontSize.sm,
+    textAlign: 'center',
+    lineHeight: 20,
+    marginBottom: spacing.lg,
+  },
+  modalNotesPreview: {
+    backgroundColor: colors.background.tertiary,
+    borderRadius: borderRadius.md,
+    padding: spacing.md,
+    marginBottom: spacing.lg,
+    borderWidth: 1,
+    borderColor: colors.border.muted,
+  },
+  modalNotesLabel: {
+    color: colors.text.tertiary,
+    fontSize: fontSize.xs,
+    marginBottom: spacing.xs,
+  },
+  modalNotesText: {
+    color: colors.text.secondary,
+    fontSize: fontSize.sm,
+    fontStyle: 'italic',
+  },
+  modalButtons: {
+    flexDirection: 'row',
+    gap: spacing.md,
+  },
+  modalCancelButton: {
+    flex: 1,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.lg,
+    borderRadius: borderRadius.md,
+    backgroundColor: colors.background.tertiary,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: colors.border.muted,
+  },
+  modalCancelButtonText: {
+    color: colors.text.secondary,
+    fontSize: fontSize.sm,
+    fontWeight: '600',
+  },
+  modalConfirmButton: {
+    flex: 1,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.lg,
+    borderRadius: borderRadius.md,
+    alignItems: 'center',
+  },
+  modalConfirmButtonText: {
+    color: colors.text.inverse,
     fontSize: fontSize.sm,
     fontWeight: '600',
   },
