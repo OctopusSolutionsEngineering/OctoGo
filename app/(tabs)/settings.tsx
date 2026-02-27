@@ -118,7 +118,7 @@ export default function SettingsScreen() {
   }, []);
 
   const openGitHub = useCallback(() => {
-    Linking.openURL('https://github.com/OctopusDeploy');
+    Linking.openURL('https://github.com/OctopusSolutionsEngineering/OctoGo');
   }, []);
 
   return (
@@ -282,7 +282,7 @@ export default function SettingsScreen() {
             onPress={openGitHub}
           >
             <Ionicons name="logo-github" size={22} color={colors.octopus.primary} style={{ marginRight: spacing.sm }} />
-            <Text style={styles.linkText}>Octopus Deploy GitHub</Text>
+            <Text style={styles.linkText}>OctoGo GitHub</Text>
             <Text style={styles.linkChevron}>›</Text>
           </Pressable>
         </View>
@@ -295,10 +295,13 @@ export default function SettingsScreen() {
             <View style={styles.aboutContent}>
               <Text style={styles.appName}>OctoGo</Text>
               <Text style={styles.appVersion}>
-                0.12.1
+                1.0.0
               </Text>
               <Text style={styles.appDescription}>
-                Unofficial mobile client for Octopus Deploy
+                This is an unofficial, community-built project - it is not a supported application.
+              </Text>
+              <Text style={styles.appDescription}>
+                If you have any issues, please raise an issue in GitHub. We'd also love to see some community contributions!
               </Text>
             </View>
           </Card>
@@ -455,7 +458,8 @@ const styles = StyleSheet.create({
   appDescription: {
     color: staticColors.text.tertiary,
     fontSize: fontSize.sm,
-    marginTop: spacing.sm,
+    marginTop: spacing.md,
+    textAlign: 'center',
   },
   securityNotice: {
     flexDirection: 'row',
