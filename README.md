@@ -122,77 +122,6 @@ npm run test:watch
 
 ---
 
-## Architecture
-
-```
-OctoGo/
-├── app/                        # Expo Router screens
-│   ├── (auth)/                 # Authentication screens
-│   │   └── login.tsx
-│   ├── (tabs)/                 # Main tab navigation
-│   │   ├── index.tsx           # Dashboard
-│   │   ├── projects.tsx
-│   │   ├── deployments.tsx
-│   │   ├── environments.tsx
-│   │   ├── runbooks.tsx
-│   │   ├── events.tsx
-│   │   ├── insights.tsx
-│   │   ├── targets.tsx
-│   │   ├── search.tsx
-│   │   └── settings.tsx
-│   ├── project/
-│   │   ├── [id].tsx            # Project detail
-│   │   └── [id]/variables.tsx  # Project variables
-│   ├── release/
-│   │   ├── [id].tsx            # Release detail
-│   │   ├── [id]/deploy.tsx     # Deploy release
-│   │   └── create.tsx          # Create new release
-│   ├── deployment/[id].tsx     # Deployment detail
-│   ├── task/[id].tsx           # Task detail with logs
-│   ├── runbook/[id].tsx        # Runbook detail
-│   ├── machine/[id].tsx        # Machine/target detail
-│   ├── tenant/[id].tsx         # Tenant detail
-│   ├── environment/[id].tsx    # Environment detail
-│   └── _layout.tsx             # Root layout with providers
-├── src/
-│   ├── lib/
-│   │   ├── security.ts         # Secure storage utilities
-│   │   ├── biometric.ts        # Biometric authentication
-│   │   ├── widgetData.ts       # Widget data handling
-│   │   └── api/
-│   │       ├── client.ts       # API client with retry logic
-│   │       └── types.ts        # TypeScript types for API
-│   ├── context/
-│   │   ├── AuthContext.tsx     # Authentication state
-│   │   ├── ThemeContext.tsx    # Light/Dark theme management
-│   │   └── FavoritesContext.tsx # Favorite projects
-│   ├── hooks/
-│   │   └── useOctopusQuery.ts  # TanStack Query hooks
-│   ├── components/
-│   │   ├── ui/                 # Reusable UI components
-│   │   │   ├── Button.tsx
-│   │   │   ├── Card.tsx
-│   │   │   ├── EmptyState.tsx
-│   │   │   ├── ErrorView.tsx
-│   │   │   ├── Input.tsx
-│   │   │   ├── LoadingScreen.tsx
-│   │   │   ├── PageTitle.tsx
-│   │   │   └── StatusBadge.tsx
-│   │   ├── DrawerMenu.tsx      # Navigation drawer
-│   │   ├── HeaderBrand.tsx     # App branding
-│   │   ├── InstanceSelector.tsx # Multi-instance support
-│   │   ├── SpaceSelector.tsx   # Multi-space support
-│   │   └── ProcessStepsView.tsx # Process steps display
-│   └── theme/
-│       ├── colors.ts           # Color palette
-│       └── spacing.ts          # Spacing & typography
-├── __tests__/                  # Jest test suites
-├── widgets/                    # iOS/Android widget support
-└── site/                       # Marketing website
-```
-
----
-
 ## Tech Stack
 
 | Category | Technology |
@@ -214,23 +143,24 @@ The app uses the official [Octopus Deploy REST API](https://octopus.com/docs/oct
 | Feature | Endpoints |
 |---------|-----------|
 | Authentication | `/api/users/me`, `/api/serverstatus`, `/api/licenses/licenses-current-status` |
-| Spaces | `/api/spaces`, `/api/spaces/{id}` |
+| Spaces | `/api/spaces`, `/api/spaces/all`, `/api/spaces/{id}` |
 | Dashboard | `/api/{spaceId}/dashboard` |
-| Projects | `/api/{spaceId}/projects`, `/api/{spaceId}/projectgroups` |
-| Releases | `/api/{spaceId}/projects/{id}/releases`, `/api/{spaceId}/releases`, `/api/{spaceId}/releases/template` |
+| Projects | `/api/{spaceId}/projects`, `/api/{spaceId}/projectgroups`, `/api/{spaceId}/projects/{id}/progression` |
+| Releases | `/api/{spaceId}/projects/{id}/releases`, `/api/{spaceId}/releases`, `/api/{spaceId}/releases/template`, `/api/{spaceId}/releases/{id}/progression` |
 | Deployments | `/api/{spaceId}/deployments`, `/api/{spaceId}/releases/{id}/deployments/preview/{envId}` |
-| Tasks | `/api/tasks`, `/api/tasks/{id}/details`, `/api/tasks/{id}/raw`, `/api/tasks/{id}/interruptions` |
-| Environments | `/api/{spaceId}/environments` |
-| Lifecycles | `/api/{spaceId}/lifecycles` |
+| Tasks | `/api/tasks`, `/api/tasks/{id}/details`, `/api/tasks/{id}/raw`, `/api/tasks/{id}/interruptions`, POST `/api/tasks`, POST `/api/tasks/{id}/cancel` |
+| Interruptions | `/api/{spaceId}/interruptions`, `/api/{spaceId}/interruptions/{id}`, POST submit, PUT responsible |
+| Environments | `/api/{spaceId}/environments`, `/api/{spaceId}/environments/all` |
+| Lifecycles | `/api/{spaceId}/lifecycles`, `/api/{spaceId}/lifecycles/all` |
 | Channels | `/api/{spaceId}/projects/{id}/channels` |
-| Machines | `/api/{spaceId}/machines` |
+| Machines | `/api/{spaceId}/machines/all/v1`, `/api/{spaceId}/machines/{id}` |
 | Runbooks | `/api/{spaceId}/runbooks`, `/api/{spaceId}/runbookRuns`, `/api/{spaceId}/runbookProcesses`, `/api/{spaceId}/runbooks/{id}/runbookSnapshots` |
 | Variables | `/api/{spaceId}/projects/{id}/variables` |
 | Processes | `/api/{spaceId}/projects/{id}/deploymentprocesses`, `/api/{spaceId}/runbookProcesses/{id}` |
-| Tenants | `/api/{spaceId}/tenants`, `/api/{spaceId}/tagsets` |
+| Tenants | `/api/{spaceId}/tenants`, `/api/{spaceId}/tenants/{id}`, `/api/{spaceId}/tenants/{id}/logo`, `/api/{spaceId}/tagsets/all` |
 | Events | `/api/{spaceId}/events` |
 | Packages | `/api/{spaceId}/feeds/{id}/packages/versions` |
-| Observability | `/api/{spaceId}/observability/deployments/{id}/*` (Kubernetes live status) |
+| Observability | `/api/{spaceId}/projects/{id}/environments/{envId}/untenanted/livestatus`, `.../machines/.../resources/...` (Kubernetes live status) |
 
 ---
 
@@ -243,19 +173,9 @@ The app uses the official [Octopus Deploy REST API](https://octopus.com/docs/oct
 
 ## Limitations
 
-- This is an unofficial app and not affiliated with Octopus Deploy
-- OIDC/SSO authentication is not yet implemented (API key only)
+- This is an unofficial app
+- OIDC/SSO authentication is not implemented (API key only), this means that your permission is already pre-scoped
 - Some advanced features may have limited functionality compared to web UI
-
----
-
-## Roadmap
-
-- [ ] Push notifications for deployment status changes
-- [ ] OIDC/SSO authentication support
-- [ ] iOS Lock Screen / Android widgets
-- [ ] Offline mode with cached data
-- [ ] Create and edit variables
 
 ---
 
@@ -273,7 +193,7 @@ MIT License — see [LICENSE](LICENSE) file for details.
 
 ## Disclaimer
 
-This is an unofficial, community-built application. It is not affiliated with, endorsed by, or supported by Octopus Deploy. Use at your own risk.
+This is an unofficial, community-built project - it is not a supported application. If you have any issues, please raise an issue here in GitHub.
 
 For official Octopus Deploy support, please visit [octopus.com](https://octopus.com).
 
