@@ -3,7 +3,7 @@
  * Uses TanStack Query for caching, background updates, and error handling
  */
 
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import {
   getDashboard,
   getProjects,
@@ -346,6 +346,7 @@ export const useDeployments = (params?: {
     queryFn: () => getDeployments(params),
     staleTime: 30 * 1000, // 30 seconds
     refetchInterval: 60 * 1000, // Refetch every minute
+    placeholderData: keepPreviousData, // Keep old data visible while fetching new page
   });
 };
 
@@ -395,7 +396,7 @@ export const useTasks = (params?: {
   });
 };
 
-export const useTask = (taskId: string, options?: { refetchInterval?: number; enabled?: boolean }) => {
+export const useTask = (taskId: string, options?: { refetchInterval?: number | false; enabled?: boolean }) => {
   return useQuery<Task, OctopusApiError>({
     queryKey: queryKeys.task(taskId),
     queryFn: () => getTask(taskId),

@@ -3,7 +3,7 @@
  * Shows all pending interventions that require user action
  */
 
-import React, { useState, useCallback, useMemo } from 'react';
+import React, { useState, useCallback, useMemo, useEffect } from 'react';
 import {
   View,
   Text,
@@ -34,7 +34,7 @@ import { LoadingScreen } from '../src/components/ui/LoadingScreen';
 import { colors } from '../src/theme/colors';
 import { fontSize, spacing, borderRadius } from '../src/theme/spacing';
 import type { Interruption } from '../src/lib/api/types';
-import type { CrossInstanceInterruption } from '../src/lib/api/client';
+import type { CrossInstanceAuthFailure } from '../src/lib/api/client';
 
 interface InterventionItemProps {
   interruption: Interruption;
@@ -390,7 +390,7 @@ const InterventionItem: React.FC<InterventionItemProps> = ({
 
 export default function NotificationsScreen() {
   const router = useRouter();
-  const { currentInstance, currentSpace } = useAuth();
+  const { currentInstance, currentSpace, deleteInstance, updateInstanceApiKey } = useAuth();
   const {
     pendingInterruptions,
     isLoading,
@@ -403,9 +403,16 @@ export default function NotificationsScreen() {
     takeResponsibility,
     isSubmitting,
     crossInstanceInterruptions,
+    crossInstanceAuthFailures,
+    clearCrossInstanceAuthFailure,
     isCrossInstanceLoading,
     lastCrossInstancePoll,
   } = useNotifications();
+  const [authFailureModal, setAuthFailureModal] = useState<CrossInstanceAuthFailure | null>(null);
+  const [showApiKeyEditor, setShowApiKeyEditor] = useState(false);
+  const [newApiKey, setNewApiKey] = useState('');
+  const [isUpdatingApiKey, setIsUpdatingApiKey] = useState(false);
+  const [isRemovingInstance, setIsRemovingInstance] = useState(false);
   
   // Filter cross-instance interruptions to exclude current instance/space (avoid duplicates)
   const otherInstanceInterruptions = useMemo(() => {
@@ -455,6 +462,66 @@ export default function NotificationsScreen() {
     refetch();
     refetchCrossInstance();
   }, [refetch, refetchCrossInstance]);
+
+  useEffect(() => {
+    if (!authFailureModal && crossInstanceAuthFailures.length > 0) {
+      setAuthFailureModal(crossInstanceAuthFailures[0]);
+      setShowApiKeyEditor(false);
+      setNewApiKey('');
+    }
+  }, [crossInstanceAuthFailures, authFailureModal]);
+
+  const dismissAuthFailureModal = useCallback((instanceId?: string) => {
+    if (instanceId) {
+      clearCrossInstanceAuthFailure(instanceId);
+    }
+    setAuthFailureModal(null);
+    setShowApiKeyEditor(false);
+    setNewApiKey('');
+  }, [clearCrossInstanceAuthFailure]);
+
+  const handleRemoveFailedInstance = useCallback(async () => {
+    if (!authFailureModal) return;
+    setIsRemovingInstance(true);
+    try {
+      await deleteInstance(authFailureModal.instanceId);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      dismissAuthFailureModal(authFailureModal.instanceId);
+      await refetchCrossInstance();
+    } catch (error) {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      Alert.alert('Remove Failed', 'Could not remove this instance. Please try again.');
+    } finally {
+      setIsRemovingInstance(false);
+    }
+  }, [authFailureModal, deleteInstance, dismissAuthFailureModal, refetchCrossInstance]);
+
+  const handleSaveApiKey = useCallback(async () => {
+    if (!authFailureModal) return;
+    const trimmedApiKey = newApiKey.trim();
+    if (!trimmedApiKey) {
+      Alert.alert('API Key Required', 'Please enter a new API key.');
+      return;
+    }
+
+    setIsUpdatingApiKey(true);
+    try {
+      const result = await updateInstanceApiKey(authFailureModal.instanceId, trimmedApiKey);
+      if (!result.success) {
+        Alert.alert('Update Failed', result.error || 'Could not update the API key.');
+        return;
+      }
+
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      dismissAuthFailureModal(authFailureModal.instanceId);
+      await refetchCrossInstance();
+    } catch (error) {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      Alert.alert('Update Failed', 'Could not update the API key. Please try again.');
+    } finally {
+      setIsUpdatingApiKey(false);
+    }
+  }, [authFailureModal, newApiKey, updateInstanceApiKey, dismissAuthFailureModal, refetchCrossInstance]);
 
   if (isLoading && pendingInterruptions.length === 0 && crossInstanceInterruptions.length === 0) {
     return <LoadingScreen message="Loading notifications..." />;
@@ -572,6 +639,91 @@ export default function NotificationsScreen() {
           )}
         </ScrollView>
       </SafeAreaView>
+
+      <Modal
+        visible={!!authFailureModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => dismissAuthFailureModal(authFailureModal?.instanceId)}
+      >
+        <Pressable
+          style={styles.modalOverlay}
+          onPress={() => dismissAuthFailureModal(authFailureModal?.instanceId)}
+        >
+          <Pressable style={styles.modalContent} onPress={(e) => e.stopPropagation()}>
+            <View style={styles.modalHeader}>
+              <View style={[styles.modalIcon, { backgroundColor: colors.status.error + '20' }]}>
+                <Ionicons name="alert-circle" size={32} color={colors.status.error} />
+              </View>
+              <Text style={styles.modalTitle}>Instance Login Failed</Text>
+            </View>
+
+            <Text style={styles.modalMessage}>
+              {showApiKeyEditor
+                ? `Enter a new API key for "${authFailureModal?.instanceName}" and retry polling.`
+                : `Could not authenticate "${authFailureModal?.instanceName}" while checking manual interventions. ${authFailureModal?.message || 'The API key may be invalid.'}`}
+            </Text>
+
+            {!showApiKeyEditor && authFailureModal?.serverUrl && (
+              <View style={styles.modalNotesPreview}>
+                <Text style={styles.modalNotesLabel}>Server</Text>
+                <Text style={styles.modalNotesText}>{authFailureModal.serverUrl}</Text>
+              </View>
+            )}
+
+            {showApiKeyEditor ? (
+              <>
+                <TextInput
+                  style={styles.notesInput}
+                  placeholder="New API key"
+                  placeholderTextColor={colors.text.tertiary}
+                  value={newApiKey}
+                  onChangeText={setNewApiKey}
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                />
+                <View style={styles.modalButtons}>
+                  <Pressable
+                    style={styles.modalCancelButton}
+                    onPress={() => setShowApiKeyEditor(false)}
+                    disabled={isUpdatingApiKey}
+                  >
+                    <Text style={styles.modalCancelButtonText}>Back</Text>
+                  </Pressable>
+                  <Pressable
+                    style={[styles.modalConfirmButton, { backgroundColor: colors.brand.primary }]}
+                    onPress={handleSaveApiKey}
+                    disabled={isUpdatingApiKey}
+                  >
+                    <Text style={styles.modalConfirmButtonText}>
+                      {isUpdatingApiKey ? 'Saving...' : 'Save Key'}
+                    </Text>
+                  </Pressable>
+                </View>
+              </>
+            ) : (
+              <View style={styles.modalButtons}>
+                <Pressable
+                  style={styles.modalCancelButton}
+                  onPress={() => setShowApiKeyEditor(true)}
+                  disabled={isRemovingInstance}
+                >
+                  <Text style={styles.modalCancelButtonText}>Update API Key</Text>
+                </Pressable>
+                <Pressable
+                  style={[styles.modalConfirmButton, { backgroundColor: colors.status.error }]}
+                  onPress={handleRemoveFailedInstance}
+                  disabled={isRemovingInstance}
+                >
+                  <Text style={styles.modalConfirmButtonText}>
+                    {isRemovingInstance ? 'Removing...' : 'Remove Instance'}
+                  </Text>
+                </Pressable>
+              </View>
+            )}
+          </Pressable>
+        </Pressable>
+      </Modal>
     </>
   );
 }
@@ -618,7 +770,7 @@ const styles = StyleSheet.create({
   },
   manualInterventionCard: {
     borderColor: colors.brand.primary + '40',
-    backgroundColor: colors.brand.primaryDim,
+    backgroundColor: colors.status.infoDim,
   },
   guidedFailureCard: {
     borderColor: colors.status.warning + '40',

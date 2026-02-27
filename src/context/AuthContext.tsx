@@ -20,6 +20,7 @@ import {
   removeInstance,
   migrateToMultiInstance,
   updateInstance,
+  updateInstanceApiKey as updateInstanceApiKeyStorage,
   type OctopusInstance,
 } from '../lib/security';
 import { validateConnection, OctopusApiError, getSpaces, getLicenseStatus } from '../lib/api/client';
@@ -52,6 +53,7 @@ interface AuthContextValue extends AuthState {
   deleteInstance: (instanceId: string) => Promise<void>;
   refreshInstances: () => Promise<void>;
   renameInstance: (instanceId: string, name: string) => Promise<void>;
+  updateInstanceApiKey: (instanceId: string, apiKey: string) => Promise<{ success: boolean; error?: string }>;
   startAddingInstance: () => void;
   cancelAddingInstance: () => void;
 }
@@ -458,6 +460,23 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     setState(prev => ({ ...prev, instances, currentInstance }));
   }, []);
 
+  // Update API key for an existing instance
+  const updateInstanceApiKey = useCallback(async (
+    instanceId: string,
+    apiKey: string
+  ): Promise<{ success: boolean; error?: string }> => {
+    const result = await updateInstanceApiKeyStorage(instanceId, apiKey);
+    if (!result.success) {
+      setState(prev => ({ ...prev, error: result.error || 'Failed to update API key' }));
+      return result;
+    }
+
+    const instances = await getInstances();
+    const currentInstance = await getCurrentInstance();
+    setState(prev => ({ ...prev, instances, currentInstance, error: null }));
+    return result;
+  }, []);
+
   // Start adding a new instance (allows access to login screen while authenticated)
   const startAddingInstance = useCallback(() => {
     setState(prev => ({ ...prev, isAddingInstance: true }));
@@ -481,6 +500,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         deleteInstance,
         refreshInstances,
         renameInstance,
+        updateInstanceApiKey,
         startAddingInstance,
         cancelAddingInstance,
       }}

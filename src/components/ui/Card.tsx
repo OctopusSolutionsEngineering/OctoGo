@@ -12,7 +12,7 @@ import { borderRadius, spacing } from '../../theme/spacing';
 interface CardProps {
   children: ReactNode;
   onPress?: () => void;
-  style?: ViewStyle;
+  style?: ViewStyle | ViewStyle[];
   variant?: 'default' | 'elevated';
 }
 

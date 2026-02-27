@@ -15,6 +15,7 @@ import {
   submitInterruptionForInstance, 
   takeResponsibilityForInstance,
   type CrossInstanceInterruption,
+  type CrossInstanceAuthFailure,
   type InstanceCredentials,
 } from '../lib/api/client';
 
@@ -29,6 +30,7 @@ interface NotificationsContextType {
   
   // Cross-instance interruptions (all instances/spaces)
   crossInstanceInterruptions: CrossInstanceInterruption[];
+  crossInstanceAuthFailures: CrossInstanceAuthFailure[];
   isCrossInstanceLoading: boolean;
   crossInstanceError: Error | null;
   lastCrossInstancePoll: Date | null;
@@ -44,6 +46,7 @@ interface NotificationsContextType {
   // Actions
   refetch: () => void;
   refetchCrossInstance: () => Promise<void>;
+  clearCrossInstanceAuthFailure: (instanceId: string) => void;
   submitInterruption: (
     interruptionId: string,
     action: 'Proceed' | 'Abort' | 'Fail' | 'Retry' | 'Ignore' | 'Exclude',
@@ -68,6 +71,7 @@ export const NotificationsProvider: React.FC<{ children: React.ReactNode }> = ({
   
   // Cross-instance state
   const [crossInstanceInterruptions, setCrossInstanceInterruptions] = useState<CrossInstanceInterruption[]>([]);
+  const [crossInstanceAuthFailures, setCrossInstanceAuthFailures] = useState<CrossInstanceAuthFailure[]>([]);
   const [isCrossInstanceLoading, setIsCrossInstanceLoading] = useState(false);
   const [crossInstanceError, setCrossInstanceError] = useState<Error | null>(null);
   const [lastCrossInstancePoll, setLastCrossInstancePoll] = useState<Date | null>(null);
@@ -124,12 +128,14 @@ export const NotificationsProvider: React.FC<{ children: React.ReactNode }> = ({
       
       if (credentials.length === 0) {
         setCrossInstanceInterruptions([]);
+        setCrossInstanceAuthFailures([]);
         return;
       }
       
       // Fetch all interruptions across all instances
-      const allInterruptions = await getAllPendingInterruptions(credentials);
-      setCrossInstanceInterruptions(allInterruptions);
+      const pollingResult = await getAllPendingInterruptions(credentials);
+      setCrossInstanceInterruptions(pollingResult.interruptions);
+      setCrossInstanceAuthFailures(pollingResult.authFailures);
       setLastCrossInstancePoll(new Date());
     } catch (error) {
       console.error('Cross-instance polling failed:', error);
@@ -188,6 +194,7 @@ export const NotificationsProvider: React.FC<{ children: React.ReactNode }> = ({
     } else {
       stopCrossInstancePolling();
       setCrossInstanceInterruptions([]);
+      setCrossInstanceAuthFailures([]);
     }
 
     return () => {
@@ -283,11 +290,16 @@ export const NotificationsProvider: React.FC<{ children: React.ReactNode }> = ({
     }
   }, [responsibilityMutation, refetch, instanceCredentialsCache, pollCrossInstance]);
 
+  const clearCrossInstanceAuthFailure = useCallback((instanceId: string) => {
+    setCrossInstanceAuthFailures(prev => prev.filter(failure => failure.instanceId !== instanceId));
+  }, []);
+
   const value: NotificationsContextType = {
     pendingInterruptions: interruptions,
     isLoading,
     error: error as Error | null,
     crossInstanceInterruptions,
+    crossInstanceAuthFailures,
     isCrossInstanceLoading,
     crossInstanceError,
     lastCrossInstancePoll,
@@ -297,6 +309,7 @@ export const NotificationsProvider: React.FC<{ children: React.ReactNode }> = ({
     crossInstanceTotalCount: crossInstanceInterruptions.length,
     refetch,
     refetchCrossInstance: pollCrossInstance,
+    clearCrossInstanceAuthFailure,
     submitInterruption: handleSubmitInterruption,
     takeResponsibility: handleTakeResponsibility,
     isSubmitting: submitMutation.isPending || responsibilityMutation.isPending,

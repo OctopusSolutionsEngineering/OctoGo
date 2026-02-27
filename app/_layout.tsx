@@ -3,8 +3,8 @@
  * Configures providers and handles auth routing
  */
 
-import React, { useEffect, useCallback } from 'react';
-import { View, Pressable, Alert, Platform } from 'react-native';
+import React, { useEffect, useCallback, useState, useRef } from 'react';
+import { View, Pressable, Alert, Platform, AppState, AppStateStatus } from 'react-native';
 import { Stack, useRouter, useSegments } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -28,6 +28,8 @@ import { ThemeProvider, useTheme } from '../src/context/ThemeContext';
 import { TabCustomizationProvider } from '../src/context/TabCustomizationContext';
 import { NotificationsProvider } from '../src/context/NotificationsContext';
 import { LoadingScreen } from '../src/components/ui/LoadingScreen';
+import { BiometricLockScreen } from '../src/components/ui/BiometricLockScreen';
+import { isBiometricEnabled } from '../src/lib/biometric';
 import { spacing } from '../src/theme/spacing';
 
 // Keep the splash screen visible while we fetch resources
@@ -49,6 +51,65 @@ function AuthGate({ children }: { children: React.ReactNode }) {
   const segments = useSegments();
   const router = useRouter();
 
+  // Biometric lock state
+  const [isLocked, setIsLocked] = useState(false);
+  const [biometricChecked, setBiometricChecked] = useState(false);
+  const appStateRef = useRef<AppStateStatus>(AppState.currentState);
+  // Track whether the user has unlocked at least once this session.
+  // Prevents re-locking on the initial launch transition and during the
+  // Face ID / Touch ID prompt (which briefly moves the app to "inactive").
+  const hasUnlockedRef = useRef(false);
+
+  const handleUnlock = useCallback(() => {
+    setIsLocked(false);
+    hasUnlockedRef.current = true;
+  }, []);
+
+  // Check biometric preference on initial auth load
+  useEffect(() => {
+    if (isLoading || !isAuthenticated) {
+      setBiometricChecked(true);
+      return;
+    }
+
+    let cancelled = false;
+    isBiometricEnabled().then(enabled => {
+      if (cancelled) return;
+      if (enabled) {
+        setIsLocked(true);
+      }
+      setBiometricChecked(true);
+    });
+
+    return () => { cancelled = true; };
+  }, [isLoading, isAuthenticated]);
+
+  // Monitor AppState for background -> foreground transitions.
+  // Only re-lock when returning from "background" (not "inactive") because:
+  //  - "inactive" is the state while Face ID / Touch ID prompt is showing
+  //  - "inactive" is also triggered by notification shade, control center, etc.
+  // And only after the user has completed the initial unlock.
+  useEffect(() => {
+    const subscription = AppState.addEventListener('change', (nextState: AppStateStatus) => {
+      if (
+        appStateRef.current === 'background' &&
+        nextState === 'active' &&
+        isAuthenticated &&
+        hasUnlockedRef.current
+      ) {
+        isBiometricEnabled().then(enabled => {
+          if (enabled) {
+            setIsLocked(true);
+          }
+        });
+      }
+      appStateRef.current = nextState;
+    });
+
+    return () => subscription.remove();
+  }, [isAuthenticated]);
+
+  // Auth routing
   useEffect(() => {
     if (isLoading) return;
 
@@ -63,11 +124,18 @@ function AuthGate({ children }: { children: React.ReactNode }) {
     }
   }, [isLoading, isAuthenticated, isAddingInstance, segments]);
 
-  if (isLoading) {
+  if (isLoading || !biometricChecked) {
     return <LoadingScreen message="Checking authentication..." />;
   }
 
-  return <>{children}</>;
+  return (
+    <>
+      {children}
+      {isLocked && isAuthenticated && (
+        <BiometricLockScreen onUnlock={handleUnlock} />
+      )}
+    </>
+  );
 }
 
 function ThemedApp() {

@@ -1774,6 +1774,19 @@ export interface CrossInstanceInterruption {
   spaceName: string;
 }
 
+export interface CrossInstanceAuthFailure {
+  instanceId: string;
+  instanceName: string;
+  serverUrl: string;
+  message: string;
+  statusCode?: number;
+}
+
+export interface CrossInstancePollingResult {
+  interruptions: CrossInstanceInterruption[];
+  authFailures: CrossInstanceAuthFailure[];
+}
+
 /**
  * Gets all spaces accessible to the user for a specific instance
  */
@@ -1789,6 +1802,9 @@ export const getSpacesForInstance = async (
       name: space.Name,
     }));
   } catch (error) {
+    if (error instanceof OctopusApiError && error.isAuthError) {
+      throw error;
+    }
     console.warn(`Failed to get spaces for instance ${credentials.instanceName}:`, error);
     return [];
   }
@@ -1820,8 +1836,9 @@ export const getInterruptionsForInstanceSpace = async (
  */
 export const getAllPendingInterruptions = async (
   instanceCredentials: InstanceCredentials[]
-): Promise<CrossInstanceInterruption[]> => {
+): Promise<CrossInstancePollingResult> => {
   const allInterruptions: CrossInstanceInterruption[] = [];
+  const authFailures: CrossInstanceAuthFailure[] = [];
   
   // Process each instance
   await Promise.all(
@@ -1829,6 +1846,11 @@ export const getAllPendingInterruptions = async (
       try {
         // Get all spaces for this instance
         const spaces = await getSpacesForInstance(credentials);
+
+        // Treat no spaces as non-fatal. Could be no space access rather than auth failure.
+        if (spaces.length === 0) {
+          return;
+        }
         
         // Get interruptions for each space in parallel
         const spaceResults = await Promise.all(
@@ -1849,6 +1871,16 @@ export const getAllPendingInterruptions = async (
           allInterruptions.push(...results);
         });
       } catch (error) {
+        if (error instanceof OctopusApiError && error.isAuthError) {
+          authFailures.push({
+            instanceId: credentials.instanceId,
+            instanceName: credentials.instanceName,
+            serverUrl: credentials.serverUrl,
+            message: error.message,
+            statusCode: error.statusCode,
+          });
+          return;
+        }
         console.warn(`Failed to poll instance ${credentials.instanceName}:`, error);
       }
     })
@@ -1859,7 +1891,10 @@ export const getAllPendingInterruptions = async (
     new Date(b.interruption.Created).getTime() - new Date(a.interruption.Created).getTime()
   );
   
-  return allInterruptions;
+  return {
+    interruptions: allInterruptions,
+    authFailures,
+  };
 };
 
 /**

@@ -27,7 +27,9 @@ import {
   useSubmitInterruption,
   useTakeResponsibility,
   useDeployment,
+  useCreateDeployment,
   useRunbookRun,
+  useCreateRunbookRun,
   useProject,
   useRelease,
   useEnvironment,
@@ -229,6 +231,41 @@ const ActivityItem: React.FC<ActivityItemProps> = ({ activity, depth = 0 }) => {
         </View>
       )}
     </View>
+  );
+};
+
+// Release Notes component to show what changed in this release
+interface ReleaseNotesCardProps {
+  task: { Name?: string; Arguments?: Record<string, unknown> };
+}
+
+const ReleaseNotesCard: React.FC<ReleaseNotesCardProps> = ({ task }) => {
+  // Extract deployment ID from task arguments
+  const deploymentId = getDeploymentIdFromTask(task);
+  const args = task.Arguments as Record<string, string> | undefined;
+  const directDeploymentId = args?.DeploymentId;
+  const effectiveDeploymentId = deploymentId || directDeploymentId;
+  
+  // Fetch deployment and release
+  const { data: deployment } = useDeployment(effectiveDeploymentId || '');
+  const { data: release } = useRelease(deployment?.ReleaseId || '');
+  
+  // Don't render if no release notes, empty/whitespace only, or not a deployment
+  const releaseNotes = release?.ReleaseNotes?.trim();
+  if (!releaseNotes || !effectiveDeploymentId) {
+    return null;
+  }
+  
+  return (
+    <Card style={styles.releaseNotesCard}>
+      <View style={styles.releaseNotesHeader}>
+        <Ionicons name="document-text" size={20} color={colors.brand.primary} />
+        <Text style={styles.releaseNotesTitle}>Release Notes</Text>
+      </View>
+      <View style={styles.releaseNotesContent}>
+        <Text style={styles.releaseNotesText}>{releaseNotes}</Text>
+      </View>
+    </Card>
   );
 };
 
@@ -482,10 +519,10 @@ const InterventionCard: React.FC<InterventionCardProps> = ({
   const typeColor = isGuidedFailure ? colors.status.warning : colors.brand.primary;
 
   return (
-    <Card style={[
+    <Card style={StyleSheet.flatten([
       styles.interventionCard, 
       isGuidedFailure ? styles.guidedFailureCard : styles.manualInterventionCardStyle
-    ]}>
+    ])}>
       <View style={styles.interventionHeader}>
         <View style={[styles.interventionTypeIcon, { backgroundColor: typeColor + '20' }]}>
           <Ionicons name={typeIcon} size={20} color={typeColor} />
@@ -669,6 +706,33 @@ const InterventionCard: React.FC<InterventionCardProps> = ({
   );
 };
 
+// Calculate progress based on activity logs
+// Look at the children of the root activity (the actual steps)
+const calculateActivityProgress = (activities: ActivityLog[]): number => {
+  if (!activities || activities.length === 0) return 0;
+  
+  // Get the first activity (root deployment task) and its children (the actual steps)
+  const rootActivity = activities[0];
+  const steps = rootActivity?.Children || [];
+  
+  if (steps.length === 0) return 0;
+  
+  let completed = 0;
+  let total = steps.length;
+  
+  steps.forEach(step => {
+    const status = step.Status;
+    // Count terminal states as completed (Success, Failed, Skipped, Canceled, Warning)
+    if (status === 'Success' || status === 'Failed' || 
+        status === 'Skipped' || status === 'Canceled' || 
+        status === 'Warning') {
+      completed++;
+    }
+  });
+  
+  return total > 0 ? (completed / total) * 100 : 0;
+};
+
 export default function TaskDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
@@ -680,32 +744,54 @@ export default function TaskDetailScreen() {
   
   const { data: task, isLoading, error, refetch } = useTaskDetails(id!, {
     enabled: !!id,
-    // Only poll when task is actively executing - stop polling once completed
+    // Aggressively poll when task is actively executing (every 1 second)
+    // Stop polling once completed
     refetchInterval: (query) => {
       const taskState = query.state.data?.State;
-      return isExecuting(taskState) ? 5000 : false;
+      return isExecuting(taskState) ? 1000 : false;
     },
   });
 
   const isTaskActive = isExecuting(task?.State);
   const hasPendingInterruptions = task?.HasPendingInterruptions === true;
+  
+  // Calculate actual progress from activity logs
+  const actualProgress = task?.ActivityLogs 
+    ? calculateActivityProgress(task.ActivityLogs) 
+    : (task?.Progress?.ProgressPercentage ?? 0);
 
   // Only fetch raw logs when in raw view mode
   const { data: rawLogs, isLoading: rawLoading } = useTaskRaw(id!, {
     enabled: !!id && viewMode === 'raw',
-    refetchInterval: isTaskActive ? 3000 : false, // Live refresh only when executing
+    refetchInterval: isTaskActive ? 1000 : false, // Live refresh every 1 second when executing
   });
 
   // Fetch interruptions if task has pending interruptions OR is in an active state
   // We check both conditions because sometimes HasPendingInterruptions is true even when state shows Queued
   const { data: interruptions, refetch: refetchInterruptions } = useTaskInterruptions(id!, {
     enabled: !!id && (hasPendingInterruptions || isTaskActive),
-    refetchInterval: (hasPendingInterruptions || isTaskActive) ? 10000 : false,
+    refetchInterval: (hasPendingInterruptions || isTaskActive) ? 2000 : false, // Check every 2 seconds
   });
 
   const cancelMutation = useCancelTask();
   const submitInterruptionMutation = useSubmitInterruption();
   const takeResponsibilityMutation = useTakeResponsibility();
+  const retryDeploymentMutation = useCreateDeployment();
+  const retryRunbookRunMutation = useCreateRunbookRun();
+
+  // Extract deployment/runbook run IDs from task for retry functionality
+  const taskArgs = task?.Arguments as Record<string, string> | undefined;
+  const deploymentIdFromTask = taskArgs?.DeploymentId || null;
+  const runbookRunIdFromTask = taskArgs?.RunbookRunId || null;
+  
+  const { data: deploymentForRetry } = useDeployment(deploymentIdFromTask || '');
+  const { data: runbookRunForRetry } = useRunbookRun(runbookRunIdFromTask || '');
+  
+  const isFailedTask = task?.State === 'Failed' || task?.State === 'TimedOut' || task?.State === 'Canceled';
+  const isFailedDeployment = isFailedTask && !!deploymentIdFromTask;
+  const isFailedRunbookRun = isFailedTask && !!runbookRunIdFromTask;
+  const canRetry = (isFailedDeployment && !!deploymentForRetry) || (isFailedRunbookRun && !!runbookRunForRetry);
+  const isRetrying = retryDeploymentMutation.isPending || retryRunbookRunMutation.isPending;
 
   // Auto-scroll to bottom when raw logs update (if enabled)
   useEffect(() => {
@@ -734,6 +820,58 @@ export default function TaskDetailScreen() {
     if (!dateString) return 'N/A';
     return new Date(dateString).toLocaleString();
   };
+
+  const handleRetry = useCallback(() => {
+    const isDeployment = isFailedDeployment && !!deploymentForRetry;
+    const isRunbook = isFailedRunbookRun && !!runbookRunForRetry;
+    
+    if (!isDeployment && !isRunbook) return;
+    
+    const typeLabel = isDeployment ? 'deployment' : 'runbook run';
+    
+    Alert.alert(
+      `Retry ${isDeployment ? 'Deployment' : 'Runbook Run'}`,
+      `This will create a new ${typeLabel} with the same configuration. Continue?`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Retry',
+          onPress: async () => {
+            try {
+              let newTaskId: string | undefined;
+              
+              if (isDeployment) {
+                const newDeployment = await retryDeploymentMutation.mutateAsync({
+                  releaseId: deploymentForRetry.ReleaseId,
+                  environmentId: deploymentForRetry.EnvironmentId,
+                  tenantId: deploymentForRetry.TenantId || undefined,
+                  comments: `Retry of ${deploymentForRetry.Name || deploymentForRetry.Id}`,
+                });
+                newTaskId = newDeployment.TaskId;
+              } else if (isRunbook) {
+                const newRun = await retryRunbookRunMutation.mutateAsync({
+                  runbookId: runbookRunForRetry.RunbookId,
+                  runbookSnapshotId: runbookRunForRetry.RunbookSnapshotId,
+                  environmentId: runbookRunForRetry.EnvironmentId,
+                  comments: `Retry of ${runbookRunForRetry.Name || runbookRunForRetry.Id}`,
+                });
+                newTaskId = newRun.TaskId;
+              }
+              
+              Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+              // Navigate to the new task
+              if (newTaskId) {
+                router.replace(`/task/${newTaskId}`);
+              }
+            } catch (_error) {
+              Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+              Alert.alert('Error', `Failed to retry ${typeLabel}. Please try again.`);
+            }
+          },
+        },
+      ]
+    );
+  }, [isFailedDeployment, isFailedRunbookRun, deploymentForRetry, runbookRunForRetry, retryDeploymentMutation, retryRunbookRunMutation, router]);
 
   const handleCancel = useCallback(() => {
     Alert.alert(
@@ -844,18 +982,18 @@ export default function TaskDetailScreen() {
           <Card style={styles.headerCard}>
             <View style={styles.statusHeader}>
               <StatusBadge status={task.State} size="lg" />
-              {task.Progress && isTaskRunning && (
+              {isTaskRunning && (
                 <View style={styles.progressContainer}>
                   <View style={styles.progressBar}>
                     <View 
                       style={[
                         styles.progressFill,
-                        { width: `${task.Progress.ProgressPercentage}%` }
+                        { width: `${actualProgress}%` }
                       ]} 
                     />
                   </View>
                   <Text style={styles.progressText}>
-                    {task.Progress.ProgressPercentage.toFixed(0)}%
+                    {actualProgress.toFixed(0)}%
                   </Text>
                 </View>
               )}
@@ -879,6 +1017,22 @@ export default function TaskDetailScreen() {
                 loading={cancelMutation.isPending}
                 style={styles.cancelButton}
               />
+            )}
+
+            {canRetry && (
+              <Pressable
+                style={[styles.retryButton, isRetrying && styles.retryButtonDisabled]}
+                onPress={handleRetry}
+                disabled={isRetrying}
+              >
+                <Ionicons name="refresh" size={18} color={colors.white} />
+                <Text style={styles.retryButtonText}>
+                  {isRetrying 
+                    ? 'Retrying...' 
+                    : `Retry ${isFailedDeployment ? 'Deployment' : 'Runbook Run'}`
+                  }
+                </Text>
+              </Pressable>
             )}
           </Card>
 
@@ -919,6 +1073,11 @@ export default function TaskDetailScreen() {
 
           {/* Task Context - Project, Release, Environment, etc. */}
           <TaskContextCard task={task} onNavigate={handleNavigate} />
+
+          {/* Release Notes - show for successful deployments */}
+          {task.State === 'Success' && (
+            <ReleaseNotesCard task={task} />
+          )}
 
           {/* Timing Info */}
           <Card style={styles.contextCard}>
@@ -1129,6 +1288,25 @@ const styles = StyleSheet.create({
   cancelButton: {
     marginTop: spacing.md,
   },
+  retryButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.sm,
+    backgroundColor: colors.brand.primary,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.lg,
+    borderRadius: borderRadius.md,
+    marginTop: spacing.md,
+  },
+  retryButtonDisabled: {
+    opacity: 0.6,
+  },
+  retryButtonText: {
+    color: colors.white,
+    fontSize: fontSize.md,
+    fontWeight: '600',
+  },
   // Context card styles
   contextCard: {
     padding: spacing.md,
@@ -1172,6 +1350,37 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     textAlign: 'right',
     maxWidth: '70%',
+  },
+  // Release notes styles
+  releaseNotesCard: {
+    padding: spacing.md,
+    backgroundColor: colors.status.infoDim,
+    borderWidth: 1,
+    borderColor: colors.brand.primary + '30',
+  },
+  releaseNotesHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    marginBottom: spacing.md,
+    paddingBottom: spacing.sm,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.brand.primary + '20',
+  },
+  releaseNotesTitle: {
+    color: colors.text.primary,
+    fontSize: fontSize.md,
+    fontWeight: '600',
+  },
+  releaseNotesContent: {
+    backgroundColor: colors.background.secondary,
+    borderRadius: borderRadius.md,
+    padding: spacing.md,
+  },
+  releaseNotesText: {
+    color: colors.text.primary,
+    fontSize: fontSize.sm,
+    lineHeight: 22,
   },
   section: {
     marginTop: spacing.md,
@@ -1342,7 +1551,7 @@ const styles = StyleSheet.create({
     borderColor: colors.status.warning + '60',
   },
   manualInterventionCardStyle: {
-    backgroundColor: colors.brand.primaryDim,
+    backgroundColor: colors.status.infoDim,
     borderColor: colors.brand.primary + '60',
   },
   interventionHeader: {
@@ -1464,7 +1673,7 @@ const styles = StyleSheet.create({
   },
   pendingInterventionHint: {
     padding: spacing.md,
-    backgroundColor: colors.brand.primaryDim,
+    backgroundColor: colors.status.infoDim,
     borderWidth: 1,
     borderColor: colors.brand.primary + '40',
   },

@@ -309,6 +309,45 @@ export const getInstanceApiKey = async (instanceId: string): Promise<string | nu
 };
 
 /**
+ * Updates API key for an existing instance
+ */
+export const updateInstanceApiKey = async (
+  instanceId: string,
+  apiKey: string
+): Promise<{ success: boolean; error?: string }> => {
+  try {
+    const keyValidation = validateApiKey(apiKey);
+    if (!keyValidation.valid) {
+      return { success: false, error: keyValidation.error };
+    }
+
+    const instances = await getInstances();
+    const instance = instances.find(i => i.id === instanceId);
+    if (!instance) {
+      return { success: false, error: 'Instance not found' };
+    }
+
+    const trimmedApiKey = apiKey.trim();
+    await SecureStore.setItemAsync(
+      `${STORAGE_KEYS.API_KEY}_${instanceId}`,
+      trimmedApiKey,
+      SECURE_OPTIONS
+    );
+
+    // Keep legacy credentials in sync when updating the current instance key.
+    const currentId = await getCurrentInstanceId();
+    if (currentId === instanceId) {
+      await storeCredentials(instance.serverUrl, trimmedApiKey, instance.spaceId);
+    }
+
+    return { success: true };
+  } catch (error) {
+    console.error('Failed to update instance API key:', error);
+    return { success: false, error: 'Failed to update API key' };
+  }
+};
+
+/**
  * Gets full credentials for a specific instance
  * Used for cross-instance API calls
  */

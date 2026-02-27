@@ -16,6 +16,7 @@ import {
   Image,
   Modal,
   Platform,
+  ActivityIndicator,
 } from 'react-native';
 import * as Clipboard from 'expo-clipboard';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -73,6 +74,10 @@ export default function ProjectDetailScreen() {
   // Deploy confirmation modal state
   const [showDeployModal, setShowDeployModal] = useState(false);
   
+  // Deployments grid pagination state
+  const [showAllDeployments, setShowAllDeployments] = useState(false);
+  const INITIAL_RELEASES_SHOWN = 5;
+  
   const isProjectFavorite = isFavorite(id!);
   
   const handleToggleFavorite = useCallback(async () => {
@@ -84,7 +89,10 @@ export default function ProjectDetailScreen() {
   const { data: project, isLoading: projectLoading, error: projectError, refetch: refetchProject } = useProject(id!);
   const { data: releasesData, refetch: refetchReleases } = useReleases(id!, { take: 15 });
   const { data: projectSummary, isLoading: summaryLoading, refetch: refetchSummary } = useProjectSummary(id!);
-  const { data: deploymentsData, refetch: refetchDeployments } = useDeployments({ projectId: id!, take: 100 });
+  const { data: deploymentsData, refetch: refetchDeployments, isFetching: deploymentsFetching } = useDeployments({ 
+    projectId: id!, 
+    take: showAllDeployments ? 100 : 20 
+  });
   const { refetch: refetchProgression } = useProjectProgression(id!);
   const { data: deploymentProcess } = useDeploymentProcess(id!);
   const { data: runbooks } = useProjectRunbooks(id!);
@@ -235,6 +243,44 @@ export default function ProjectDetailScreen() {
       }
     });
     return status;
+  }, [projectSummary, id]);
+
+  // Fetch latest successful deployments for this project directly from the API
+  const { data: successfulDeploymentsData } = useDeployments({ 
+    projectId: id!, 
+    take: 30,
+    taskState: 'Success',
+  });
+
+  // Get the latest successful deployment per environment for "Current Versions" display
+  const currentVersions = useMemo(() => {
+    const versions = new Map<string, { version: string; deploymentId: string }>();
+    
+    if (!successfulDeploymentsData?.Items) return versions;
+    
+    // Deployments come back newest first, so first match per env is the latest successful
+    successfulDeploymentsData.Items.forEach(deployment => {
+      if (versions.has(deployment.EnvironmentId)) return; // Already found latest for this env
+      
+      const release = releases.find(r => r.Id === deployment.ReleaseId);
+      versions.set(deployment.EnvironmentId, {
+        version: release?.Version || deployment.Name || 'Unknown',
+        deploymentId: deployment.Id,
+      });
+    });
+    
+    return versions;
+  }, [successfulDeploymentsData, releases]);
+
+  // Track active deployments per environment (Executing/Queued)
+  const activeDeployments = useMemo(() => {
+    const active = new Map<string, DashboardItem>();
+    projectSummary?.Items?.forEach(item => {
+      if (item.ProjectId === id && (item.State === 'Executing' || item.State === 'Queued')) {
+        active.set(item.EnvironmentId, item);
+      }
+    });
+    return active;
   }, [projectSummary, id]);
 
   // Get environment IDs that have deployments for K8s live status queries
@@ -517,15 +563,15 @@ export default function ProjectDetailScreen() {
     </Pressable>
   );
 
-  // Render Current Releases Row (current release per environment)
-  const renderCurrentReleases = () => {
+  // Render Current Versions Row (latest successful deployment per environment)
+  const renderCurrentVersions = () => {
     // Determine if we should show K8s status toggle
     const showK8sToggle = hasK8sLiveStatus || k8sStatusLoading;
     
     return (
       <View style={styles.liveStatusSection}>
         <View style={styles.liveStatusHeader}>
-          <Text style={styles.subSectionTitle}>Current Releases</Text>
+          <Text style={styles.subSectionTitle}>Current Versions</Text>
           {showK8sToggle && (
             <View style={styles.k8sIndicator}>
               <Ionicons 
@@ -543,86 +589,99 @@ export default function ProjectDetailScreen() {
           contentContainerStyle={styles.envRow}
         >
           {sortedEnvironments.map((env) => {
-            const deploymentStatus = liveStatus.get(env.Id);
+            const successfulVersion = currentVersions.get(env.Id);
+            const activeDeployment = activeDeployments.get(env.Id);
+            const currentDeployment = liveStatus.get(env.Id);
             const k8sStatus = k8sStatusesByEnv.get(env.Id);
             const hasK8s = k8sStatus?.IsAvailable;
+            
+            // Navigate to the successful deployment, active one, or current (even if failed)
+            const navigableDeploymentId = successfulVersion?.deploymentId 
+              || activeDeployment?.DeploymentId 
+              || currentDeployment?.DeploymentId;
             
             return (
               <Pressable
                 key={env.Id}
                 style={styles.liveEnvCell}
                 onPress={() => {
-                  if (deploymentStatus) {
+                  if (navigableDeploymentId) {
                     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                    router.push(`/deployment/${deploymentStatus.DeploymentId}`);
+                    router.push(`/deployment/${navigableDeploymentId}`);
                   }
                 }}
               >
                 <Text style={styles.envHeader}>{env.Name}</Text>
-                {deploymentStatus ? (
-                  <View style={styles.liveStatusContent}>
-                    {/* Deployment status indicator */}
-                    <View style={[
-                      styles.statusIndicator,
-                      { 
-                        borderColor: getStateColor(deploymentStatus.State),
-                        backgroundColor: deploymentStatus.State === 'Executing' || deploymentStatus.State === 'Queued' 
-                          ? getStateBgColor(deploymentStatus.State) 
-                          : 'transparent'
-                      }
-                    ]}>
-                      {(deploymentStatus.State === 'Executing' || deploymentStatus.State === 'Queued') ? (
-                        <Ionicons name="sync" size={18} color={getStateColor(deploymentStatus.State)} />
-                      ) : deploymentStatus.State === 'Success' ? (
-                        <Ionicons name="checkmark" size={18} color={getStateColor(deploymentStatus.State)} />
-                      ) : (
-                        <Ionicons name="close" size={18} color={getStateColor(deploymentStatus.State)} />
-                      )}
-                    </View>
-                    
-                    {/* Version */}
-                    <Text style={styles.liveVersion}>{deploymentStatus.ReleaseVersion}</Text>
-                    
-                    {/* Deploying badge */}
-                    {(deploymentStatus.State === 'Executing' || deploymentStatus.State === 'Queued') && (
+                <View style={styles.liveStatusContent}>
+                  {/* Show active deployment indicator if currently deploying */}
+                  {activeDeployment ? (
+                    <>
+                      <View style={[
+                        styles.statusIndicator,
+                        { 
+                          borderColor: getStateColor(activeDeployment.State),
+                          backgroundColor: getStateBgColor(activeDeployment.State),
+                        }
+                      ]}>
+                        <Ionicons name="sync" size={18} color={getStateColor(activeDeployment.State)} />
+                      </View>
+                      <Text style={styles.liveVersion}>
+                        {successfulVersion ? successfulVersion.version : activeDeployment.ReleaseVersion}
+                      </Text>
                       <View style={styles.progressingBadge}>
                         <Ionicons name="flash" size={10} color={colors.status.info} />
-                        <Text style={styles.progressText}>Deploying</Text>
-                      </View>
-                    )}
-                    
-                    {/* Kubernetes Live Status badge - tappable */}
-                    {hasK8s && k8sStatus && (
-                      <Pressable
-                        style={[
-                          styles.k8sLiveStatusBadge,
-                          { backgroundColor: getK8sStatusBgColor(k8sStatus.ApplicationStatus) }
-                        ]}
-                        onPress={(e) => {
-                          e.stopPropagation();
-                          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-                          setSelectedK8sStatus({ envName: env.Name, status: k8sStatus });
-                        }}
-                      >
-                        <Ionicons 
-                          name="git-network-outline" 
-                          size={10} 
-                          color={getK8sStatusColor(k8sStatus.ApplicationStatus)} 
-                        />
-                        <Text style={[
-                          styles.k8sLiveStatusText,
-                          { color: getK8sStatusColor(k8sStatus.ApplicationStatus) }
-                        ]}>
-                          {getK8sStatusLabel(k8sStatus.ApplicationStatus)}
+                        <Text style={styles.progressText}>
+                          Deploying {activeDeployment.ReleaseVersion}
                         </Text>
-                      </Pressable>
-                    )}
-                  </View>
-                ) : (
-                  <View style={styles.noDeployment}>
-                    <Ionicons name="remove" size={24} color={colors.text.tertiary} />
-                  </View>
-                )}
+                      </View>
+                    </>
+                  ) : successfulVersion ? (
+                    <>
+                      {/* Successful deployment indicator */}
+                      <View style={[
+                        styles.statusIndicator,
+                        { 
+                          borderColor: colors.status.success,
+                          backgroundColor: 'transparent',
+                        }
+                      ]}>
+                        <Ionicons name="checkmark" size={18} color={colors.status.success} />
+                      </View>
+                      <Text style={styles.liveVersion}>{successfulVersion.version}</Text>
+                    </>
+                  ) : (
+                    <View style={styles.noDeployment}>
+                      <Ionicons name="remove" size={24} color={colors.text.tertiary} />
+                    </View>
+                  )}
+                  
+                  {/* Kubernetes Live Status badge - always show when available */}
+                  {hasK8s && k8sStatus && (
+                    <Pressable
+                      style={[
+                        styles.k8sLiveStatusBadge,
+                        { backgroundColor: getK8sStatusBgColor(k8sStatus.ApplicationStatus) }
+                      ]}
+                      onPress={(e) => {
+                        e.stopPropagation();
+                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                        setSelectedK8sStatus({ envName: env.Name, status: k8sStatus });
+                      }}
+                    >
+                      <Ionicons 
+                        name="git-network-outline" 
+                        size={10} 
+                        color={getK8sStatusColor(k8sStatus.ApplicationStatus)} 
+                      />
+                      <Text style={[
+                        styles.k8sLiveStatusText,
+                        { color: getK8sStatusColor(k8sStatus.ApplicationStatus) }
+                      ]}>
+                        {getK8sStatusLabel(k8sStatus.ApplicationStatus)}
+                      </Text>
+                    </Pressable>
+                  )}
+                </View>
               </Pressable>
             );
           })}
@@ -684,8 +743,8 @@ export default function ProjectDetailScreen() {
               ))}
             </View>
 
-            {/* Release rows */}
-            {releases.map((release) => {
+            {/* Release rows - limited initially, show all when expanded */}
+            {(showAllDeployments ? releases : releases.slice(0, INITIAL_RELEASES_SHOWN)).map((release) => {
               const releaseDeployments = deploymentMatrix.get(release.Id);
               
               return (
@@ -751,6 +810,41 @@ export default function ProjectDetailScreen() {
             })}
           </View>
         </ScrollView>
+
+        {/* Show All / Show Less button */}
+        {releases.length > INITIAL_RELEASES_SHOWN && (
+          <Pressable
+            style={styles.showAllButton}
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              setShowAllDeployments(!showAllDeployments);
+            }}
+          >
+            {deploymentsFetching && showAllDeployments ? (
+              <ActivityIndicator size="small" color={colors.brand.accent} style={{ marginRight: spacing.sm }} />
+            ) : (
+              <Ionicons 
+                name={showAllDeployments ? 'chevron-up' : 'chevron-down'} 
+                size={18} 
+                color={colors.brand.accent} 
+                style={{ marginRight: spacing.xs }}
+              />
+            )}
+            <Text style={styles.showAllButtonText}>
+              {showAllDeployments 
+                ? 'Show Less' 
+                : `Show All Releases (${releases.length})`
+              }
+            </Text>
+          </Pressable>
+        )}
+
+        {/* Total deployments info when expanded */}
+        {showAllDeployments && deploymentsData?.TotalResults != null && deploymentsData.TotalResults > (deploymentsData?.Items?.length || 0) && (
+          <Text style={styles.deploymentsCountInfo}>
+            Showing {deploymentsData.Items?.length} of {deploymentsData.TotalResults} total deployments
+          </Text>
+        )}
       </View>
     );
   };
@@ -1099,7 +1193,7 @@ export default function ProjectDetailScreen() {
               <Text style={styles.deployDetailLabel}>Release</Text>
               <View style={styles.deployDetailValue}>
                 <Ionicons name="pricetag" size={16} color={colors.brand.primary} />
-                <Text style={styles.deployDetailText}>{deployTarget?.release.Version}</Text>
+                <Text style={styles.deployDetailText} numberOfLines={2}>{deployTarget?.release.Version}</Text>
               </View>
             </View>
 
@@ -1107,7 +1201,7 @@ export default function ProjectDetailScreen() {
               <Text style={styles.deployDetailLabel}>Target Environment</Text>
               <View style={styles.deployDetailValue}>
                 <Ionicons name="server" size={16} color={colors.status.success} />
-                <Text style={styles.deployDetailText}>{deployTarget?.environment.Name}</Text>
+                <Text style={styles.deployDetailText} numberOfLines={2}>{deployTarget?.environment.Name}</Text>
               </View>
             </View>
 
@@ -1116,7 +1210,7 @@ export default function ProjectDetailScreen() {
                 <Text style={styles.deployDetailLabel}>Lifecycle</Text>
                 <View style={styles.deployDetailValue}>
                   <Ionicons name="git-network" size={16} color={colors.text.tertiary} />
-                  <Text style={styles.deployDetailText}>{lifecycle.Name}</Text>
+                  <Text style={styles.deployDetailText} numberOfLines={2}>{lifecycle.Name}</Text>
                 </View>
               </View>
             )}
@@ -1494,12 +1588,12 @@ export default function ProjectDetailScreen() {
             </View>
           </View>
 
-          {/* Dashboard Section (always visible) */}
+          {/* Dashboard Section */}
           <Card style={styles.sectionCard}>
             <SectionHeader id="dashboard" title="Dashboard" icon="grid-outline" />
             {expandedSections.has('dashboard') && (
               <View style={styles.sectionContent}>
-                {renderCurrentReleases()}
+                {renderCurrentVersions()}
                 {renderDeploymentsGrid()}
               </View>
             )}
@@ -1947,6 +2041,26 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
+  showAllButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: spacing.md,
+    marginTop: spacing.xs,
+    borderTopWidth: 1,
+    borderTopColor: colors.border.muted,
+  },
+  showAllButtonText: {
+    color: colors.brand.accent,
+    fontSize: fontSize.sm,
+    fontWeight: '600',
+  },
+  deploymentsCountInfo: {
+    color: colors.text.tertiary,
+    fontSize: fontSize.xs,
+    textAlign: 'center',
+    paddingBottom: spacing.sm,
+  },
   deployButtonSmall: {
     padding: spacing.xs,
     opacity: 0.6,
@@ -1978,16 +2092,20 @@ const styles = StyleSheet.create({
   deployDetailLabel: {
     color: colors.text.tertiary,
     fontSize: fontSize.sm,
+    flexShrink: 0,
   },
   deployDetailValue: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.sm,
+    flex: 1,
+    marginLeft: spacing.md,
   },
   deployDetailText: {
     color: colors.text.primary,
     fontSize: fontSize.sm,
     fontWeight: '600',
+    flex: 1,
   },
   deployModalButtons: {
     flexDirection: 'row',
