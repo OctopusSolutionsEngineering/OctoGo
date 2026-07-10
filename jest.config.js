@@ -53,7 +53,8 @@ module.exports = {
   },
   testMatch: ['**/__tests__/**/*.test.{ts,tsx}', '**/*.test.{ts,tsx}'],
   moduleNameMapper: {
-    '^@/(.*)$': '<rootDir>/src/$1',
+    // Match tsconfig's "@/*" -> "./*" (imports are written as "@/src/...")
+    '^@/(.*)$': '<rootDir>/$1',
     // Mock expo's internal modules that cause issues
     '^expo/src/winter/runtime\\.native$': '<rootDir>/jest.mocks/expo-runtime.js',
     '^expo/src/winter/installGlobal$': '<rootDir>/jest.mocks/expo-install-global.js',

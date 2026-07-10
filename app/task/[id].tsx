@@ -288,7 +288,8 @@ const ArtifactsCard: React.FC<ArtifactsCardProps> = ({ taskId, isCompleted }) =>
       setOpeningId(artifactId);
       const url = await getArtifactContentUrl(artifactId);
       await Linking.openURL(url);
-    } catch (_error) {
+    } catch (error) {
+      console.error('Failed to open artifact:', error);
       Alert.alert('Error', 'Unable to open artifact. Please try again.');
     } finally {
       setOpeningId(null);
