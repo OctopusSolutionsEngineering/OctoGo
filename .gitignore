@@ -21,10 +21,21 @@ expo-env.d.ts
 # Metro
 .metro-health-check*
 
+# testing
+coverage/
+
+# SonarQube scanner work dir
+.scannerwork/
+
 # debug
 npm-debug.*
 yarn-debug.*
 yarn-error.*
+*.log
+
+# editors
+.idea/
+.vscode/
 
 # macOS
 .DS_Store
