@@ -15,8 +15,8 @@
     <g fill="#fff" font-family="DejaVu Sans,Verdana,Geneva,sans-serif" font-size="11" text-anchor="left">
         <text x="26" y="15" textLength="50" fill="#010101" fill-opacity=".3">coverage</text>
         <text x="26" y="14" textLength="50">coverage</text>
-        <text x="88" y="15" textLength="37" fill="#010101" fill-opacity=".3">54.8%</text>
-        <text x="88" y="14" textLength="37">54.8%</text>
+        <text x="88" y="15" textLength="37" fill="#010101" fill-opacity=".3">92.7%</text>
+        <text x="88" y="14" textLength="37">92.7%</text>
     </g>
     <path d="M20.5797 10.9203C20.3472 10.9203 20.1595 10.7325 20.1595 10.5C20.1595 7.37888 17.6211 4.84052 14.5 4.84052C14.2674 4.84052 14.0797 4.6528 14.0797 4.42026C14.0797 4.18772 14.2674 4 14.5 4C18.0834 4 21 6.91659 21 10.5C21 10.7325 20.8123 10.9203 20.5797 10.9203Z" fill="#010101" fill-opacity="0.3"/>
 <path d="M14.5 17C10.9166 17 8 14.0834 8 10.5C8 10.2674 8.18772 10.0797 8.42026 10.0797C8.6528 10.0797 8.84052 10.2674 8.84052 10.5C8.84052 13.6211 11.3789 16.1595 14.5 16.1595C14.7325 16.1595 14.9203 16.3472 14.9203 16.5797C14.9203 16.8123 14.7325 17 14.5 17Z" fill="#010101" fill-opacity="0.3"/>
