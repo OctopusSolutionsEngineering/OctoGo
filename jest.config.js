@@ -15,12 +15,15 @@ module.exports = {
   ],
   coverageThreshold: {
     // Floors set just below current coverage to catch regressions;
-    // ratchet up as coverage improves (SonarQube tracks the trend)
+    // ratchet up as coverage improves (SonarQube tracks the trend).
+    // NOTE: jest subtracts files matched by the path-specific thresholds
+    // below from the "global" group, so these floors apply only to the
+    // remaining files (currently ~17.7% stmts / 8.5% branches).
     global: {
-      branches: 19,
-      functions: 37,
-      lines: 37,
-      statements: 37,
+      branches: 8,
+      functions: 14,
+      lines: 17,
+      statements: 17,
     },
     // Higher thresholds for core modules
     './src/lib/security.ts': {
