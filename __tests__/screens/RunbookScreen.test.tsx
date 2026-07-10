@@ -203,7 +203,7 @@ describe('RunbookDetailScreen', () => {
     // Recent runs with env-name fallback and every time-ago branch
     expect(screen.getByText('Recent Runs (4)')).toBeTruthy();
     expect(screen.getByText('Dev')).toBeTruthy();
-    expect(screen.getAllByText('Prod').length).toBe(2);
+    expect(screen.getAllByText('Prod')).toHaveLength(2);
     expect(screen.getByText('Environments-404')).toBeTruthy();
     expect(screen.getByText('Just now')).toBeTruthy();
     expect(screen.getByText('5m ago')).toBeTruthy();

@@ -154,7 +154,7 @@ describe('EnvironmentDetailScreen', () => {
 
     // Health summary: 6 healthy, 1 warning, 1 unhealthy, 1 unavailable
     expect(screen.getByText('6')).toBeTruthy();
-    expect(screen.getAllByText('1').length).toBe(3);
+    expect(screen.getAllByText('1')).toHaveLength(3);
     expect(screen.getByText('Healthy')).toBeTruthy();
     expect(screen.getByText('Warnings')).toBeTruthy();
     expect(screen.getByText('Unhealthy')).toBeTruthy();
@@ -214,7 +214,7 @@ describe('EnvironmentDetailScreen', () => {
     render(<EnvironmentDetailScreen />);
 
     // '' and 'None' both map to Cloud Region
-    expect(screen.getAllByText('Cloud Region').length).toBe(2);
+    expect(screen.getAllByText('Cloud Region')).toHaveLength(2);
     // Unrecognised style is rendered verbatim
     expect(screen.getByText('WeirdStyle')).toBeTruthy();
     // k8s inferred from roles despite Tentacle style

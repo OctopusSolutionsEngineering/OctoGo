@@ -203,7 +203,7 @@ describe('TenantDetailScreen', () => {
     // Deployment status for Dev; the other environments have no deployment
     expect(screen.getByText(/Success/)).toBeTruthy();
     expect(screen.getByText('1.0.0')).toBeTruthy();
-    expect(screen.getAllByText('—').length).toBe(2);
+    expect(screen.getAllByText('—')).toHaveLength(2);
 
     // Navigate to the project
     fireEvent.press(screen.getByText('Web App'));

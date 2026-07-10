@@ -176,8 +176,8 @@ describe('VariablesScreen', () => {
 
     // Expand EmptyVar: no scope section is rendered
     fireEvent.press(screen.getByText('EmptyVar'));
-    expect(screen.getAllByText('Value').length).toBe(3);
-    expect(screen.getAllByText('Scope').length).toBe(2);
+    expect(screen.getAllByText('Value')).toHaveLength(3);
+    expect(screen.getAllByText('Scope')).toHaveLength(2);
 
     // Collapse ApiUrl again
     fireEvent.press(screen.getByText('ApiUrl'));
