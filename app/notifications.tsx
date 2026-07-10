@@ -349,7 +349,7 @@ const InterventionItem: React.FC<InterventionItemProps> = ({
               {confirmAction && getConfirmationMessage(confirmAction.key)}
             </Text>
 
-            {notes && (
+            {!!notes && (
               <View style={styles.modalNotesPreview}>
                 <Text style={styles.modalNotesLabel}>Your notes:</Text>
                 <Text style={styles.modalNotesText} numberOfLines={2}>{notes}</Text>

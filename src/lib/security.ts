@@ -31,7 +31,7 @@ export interface OctopusInstance {
 
 // Generate a unique instance ID
 const generateInstanceId = (): string => {
-  return `instance_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+  return `instance_${Date.now()}_${crypto.randomUUID()}`;
 };
 
 // SecureStore options for enhanced security
@@ -54,7 +54,9 @@ export const validateServerUrl = (url: string): { valid: boolean; normalized: st
   let normalized = url.trim();
 
   // Remove trailing slashes for consistency
-  normalized = normalized.replace(/\/+$/, '');
+  while (normalized.endsWith('/')) {
+    normalized = normalized.slice(0, -1);
+  }
 
   // Ensure HTTPS (security requirement)
   if (!normalized.startsWith('https://') && !normalized.startsWith('http://')) {

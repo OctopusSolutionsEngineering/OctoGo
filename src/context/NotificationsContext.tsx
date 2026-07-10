@@ -78,7 +78,7 @@ export const NotificationsProvider: React.FC<{ children: React.ReactNode }> = ({
   const [instanceCredentialsCache, setInstanceCredentialsCache] = useState<InstanceCredentials[]>([]);
   
   // Refs for managing polling
-  const crossInstancePollTimer = useRef<NodeJS.Timeout | null>(null);
+  const crossInstancePollTimer = useRef<ReturnType<typeof setInterval> | null>(null);
   const appState = useRef(AppState.currentState);
   
   // Fetch pending interruptions for current space - fast polling (30 seconds)
@@ -207,7 +207,7 @@ export const NotificationsProvider: React.FC<{ children: React.ReactNode }> = ({
     // Combine current space and cross-instance interruptions for counts
     // But dedupe based on interruption ID
     const allInterruptionIds = new Set<string>();
-    const allInterruptions: Array<{ Form?: { Values?: { Guidance?: string } } }> = [];
+    const allInterruptions: Array<{ Form?: { Values?: { Guidance?: string } } | null }> = [];
     
     // Add current space interruptions
     for (const interruption of interruptions) {

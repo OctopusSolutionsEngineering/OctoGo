@@ -394,7 +394,7 @@ function ActionDetails({ action, getEnvironmentName }: ActionDetailsProps) {
                 <Ionicons name="cube-outline" size={16} color={colors.brand.primary} />
                 <View style={styles.packageInfo}>
                   <Text style={styles.packageName}>{pkg.PackageId}</Text>
-                  {pkg.Name && pkg.Name !== pkg.PackageId && (
+                  {!!pkg.Name && pkg.Name !== pkg.PackageId && (
                     <Text style={styles.packageFeed}>{pkg.Name}</Text>
                   )}
                 </View>
@@ -405,7 +405,7 @@ function ActionDetails({ action, getEnvironmentName }: ActionDetailsProps) {
           <View style={styles.noContentSection}>
             <Ionicons name="information-circle-outline" size={24} color={colors.text.tertiary} />
             <Text style={styles.noContentText}>
-              This action type ({formatActionType(action.ActionType)}) doesn't have viewable content
+              This action type ({formatActionType(action.ActionType)}) doesn&apos;t have viewable content
             </Text>
           </View>
         )

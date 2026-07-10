@@ -205,7 +205,7 @@ export default function EventsScreen() {
             }}>
               {formatTimeAgo(item.Occurred)}
             </Text>
-            {item.Category && (
+            {!!item.Category && (
               <>
                 <Text style={{
                   fontSize: 12,

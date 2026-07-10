@@ -70,9 +70,9 @@ export default function InsightsScreen() {
       const totalSeconds = completedItems.reduce((sum, item) => {
         const parts = item.Duration.split(':');
         if (parts.length >= 3) {
-          const hours = parseInt(parts[0]) || 0;
-          const minutes = parseInt(parts[1]) || 0;
-          const seconds = parseFloat(parts[2]) || 0;
+          const hours = Number.parseInt(parts[0]) || 0;
+          const minutes = Number.parseInt(parts[1]) || 0;
+          const seconds = Number.parseFloat(parts[2]) || 0;
           return sum + (hours * 3600 + minutes * 60 + seconds);
         }
         return sum;

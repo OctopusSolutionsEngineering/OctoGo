@@ -108,9 +108,9 @@ export default function DeploymentsScreen() {
     // Duration comes in format like "00:01:23.456"
     const parts = duration.split(':');
     if (parts.length >= 3) {
-      const hours = parseInt(parts[0]);
-      const minutes = parseInt(parts[1]);
-      const seconds = parseFloat(parts[2]).toFixed(0);
+      const hours = Number.parseInt(parts[0]);
+      const minutes = Number.parseInt(parts[1]);
+      const seconds = Number.parseFloat(parts[2]).toFixed(0);
       
       if (hours > 0) return `${hours}h ${minutes}m`;
       if (minutes > 0) return `${minutes}m ${seconds}s`;
@@ -150,7 +150,7 @@ export default function DeploymentsScreen() {
               </View>
             )}
             
-            {item.IsCompleted && item.Duration && (
+            {item.IsCompleted && !!item.Duration && (
               <View style={styles.durationContainer}>
                 <Ionicons name="time-outline" size={12} color={colors.text.secondary} />
                 <Text style={styles.duration}>{formatDuration(item.Duration)}</Text>

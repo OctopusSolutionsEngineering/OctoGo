@@ -45,6 +45,7 @@ import type {
   SelectedPackageVersion,
   DeploymentPreviewResponse,
   Interruption,
+  Artifact,
 } from './types';
 
 // Constants
@@ -1272,6 +1273,44 @@ export const getProjectProgression = async (projectId: string): Promise<any> => 
     );
     return response.data;
   });
+};
+
+// ============================================================================
+// Artifacts
+// ============================================================================
+
+/**
+ * Gets artifacts for a specific server task
+ */
+export const getArtifacts = async (serverTaskId: string): Promise<Artifact[]> => {
+  return withRetry(async () => {
+    const { client, spaceId } = await createClient();
+    const params = new URLSearchParams();
+    params.append('regarding', sanitizePathSegment(serverTaskId));
+    params.append('take', '100');
+
+    const url = `${spacePath(spaceId, '/artifacts')}?${params.toString()}`;
+    const response = await client.get<PaginatedResponse<Artifact>>(url);
+    return response.data?.Items ?? [];
+  });
+};
+
+/**
+ * Builds the full URL for downloading an artifact's content.
+ * Returns a URL that can be opened in a browser to download the file.
+ */
+export const getArtifactContentUrl = async (artifactId: string): Promise<string> => {
+  const credentials = await getCredentials();
+  if (!credentials) {
+    throw new OctopusApiError('No credentials found. Please log in.', 401);
+  }
+
+  const { serverUrl, spaceId, apiKey } = credentials;
+  const basePath = spaceId
+    ? `${serverUrl}/api/${spaceId}/artifacts/${sanitizePathSegment(artifactId)}/content`
+    : `${serverUrl}/api/artifacts/${sanitizePathSegment(artifactId)}/content`;
+
+  return `${basePath}?apiKey=${apiKey}`;
 };
 
 // ============================================================================

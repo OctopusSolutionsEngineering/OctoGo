@@ -59,6 +59,7 @@ import {
   getPackageVersions,
   getDeploymentPreview,
   globalSearch,
+  getArtifacts,
 } from '../lib/api/client';
 import type {
   Dashboard,
@@ -90,6 +91,7 @@ import type {
   DeploymentPreviewResponse,
   SelectedPackageVersion,
   Interruption,
+  Artifact,
 } from '../lib/api/types';
 
 // Query key factory for consistent cache keys
@@ -188,6 +190,9 @@ export const queryKeys = {
   // Deployment Preview
   deploymentPreview: (releaseId: string, environmentId: string, tenantId?: string) => 
     [...queryKeys.release(releaseId), 'preview', environmentId, tenantId] as const,
+  
+  // Artifacts
+  artifacts: (taskId: string) => [...queryKeys.task(taskId), 'artifacts'] as const,
   
   // Global Search
   globalSearch: (searchText: string) => [...queryKeys.all, 'search', searchText] as const,
@@ -481,6 +486,23 @@ export const useTakeResponsibility = () => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.tasks() });
       queryClient.invalidateQueries({ queryKey: queryKeys.pendingInterruptions() });
+    },
+  });
+};
+
+// ============================================================================
+// Artifacts
+// ============================================================================
+
+export const useArtifacts = (taskId: string, options?: { enabled?: boolean }) => {
+  return useQuery<Artifact[], OctopusApiError>({
+    queryKey: queryKeys.artifacts(taskId),
+    queryFn: () => getArtifacts(taskId),
+    enabled: options?.enabled !== false && !!taskId,
+    staleTime: 5 * 60 * 1000, // 5 minutes - artifacts don't change after task completion
+    retry: (failureCount, error) => {
+      if (error?.statusCode === 404) return false;
+      return failureCount < 2;
     },
   });
 };

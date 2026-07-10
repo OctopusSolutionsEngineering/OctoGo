@@ -17,17 +17,29 @@ module.exports = {
     // Floors set just below current coverage to catch regressions;
     // ratchet up as coverage improves (SonarQube tracks the trend)
     global: {
-      branches: 4,
-      functions: 10,
-      lines: 11,
-      statements: 11,
+      branches: 19,
+      functions: 37,
+      lines: 37,
+      statements: 37,
     },
     // Higher thresholds for core modules
     './src/lib/security.ts': {
-      branches: 45,
-      functions: 30,
-      lines: 37,
-      statements: 35,
+      branches: 95,
+      functions: 95,
+      lines: 95,
+      statements: 95,
+    },
+    './src/lib/api/client.ts': {
+      branches: 80,
+      functions: 95,
+      lines: 95,
+      statements: 95,
+    },
+    './src/hooks/useOctopusQuery.ts': {
+      branches: 95,
+      functions: 95,
+      lines: 95,
+      statements: 95,
     },
     './src/context/FavoritesContext.tsx': {
       branches: 100,

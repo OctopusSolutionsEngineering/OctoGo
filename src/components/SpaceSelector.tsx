@@ -209,7 +209,7 @@ export const SpaceSelector: React.FC = () => {
             <Text style={styles.selectorName} numberOfLines={1}>
               {currentSpaceName}
             </Text>
-            {currentSpaceDescription && (
+            {!!currentSpaceDescription && (
               <Text style={styles.selectorDescription} numberOfLines={1}>
                 {currentSpaceDescription}
               </Text>

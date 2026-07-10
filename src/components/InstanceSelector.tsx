@@ -383,7 +383,7 @@ export const InstanceSelector: React.FC<InstanceSelectorProps> = ({ onInstanceSw
             <Text style={styles.selectorName} numberOfLines={1}>
               {currentInstanceName}
             </Text>
-            {currentInstanceUrl && (
+            {!!currentInstanceUrl && (
               <Text style={styles.selectorUrl} numberOfLines={1}>
                 {currentInstanceUrl}
               </Text>

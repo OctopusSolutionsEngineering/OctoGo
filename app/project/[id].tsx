@@ -1079,9 +1079,7 @@ export default function ProjectDetailScreen() {
         {channels.map((channel) => {
           // Channel uses its own lifecycle, or inherits from project
           const isInherited = !channel.LifecycleId;
-          const channelLifecycleName = isInherited 
-            ? lifecycle?.Name 
-            : lifecycle?.Name;
+          const channelLifecycleName = lifecycle?.Name;
           
           return (
             <View key={channel.Id} style={styles.channelItem}>
@@ -1344,7 +1342,7 @@ export default function ProjectDetailScreen() {
                               {getK8sObjectStatusLabel(resource.Status)}
                             </Text>
                           </View>
-                          {resource.Namespace && (
+                          {!!resource.Namespace && (
                             <Text style={styles.k8sResourceNamespace}>
                               Namespace: {resource.Namespace}
                             </Text>
@@ -1568,7 +1566,7 @@ export default function ProjectDetailScreen() {
               )}
               <View style={styles.projectInfo}>
                 <Text style={styles.projectName}>{project.Name}</Text>
-                {project.Description && (
+                {!!project.Description && (
                   <Text style={styles.projectDescription} numberOfLines={2}>
                     {project.Description}
                   </Text>

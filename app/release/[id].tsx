@@ -270,7 +270,7 @@ export default function ReleaseDetailScreen() {
                 {release.ChannelId?.replace('Channels-', 'Channel ') || 'Default'}
               </Text>
             </View>
-            {release.ProjectVariableSetSnapshotId && (
+            {!!release.ProjectVariableSetSnapshotId && (
               <View style={[themedStyles.infoRow, { borderBottomWidth: 0 }]}>
                 <Text style={themedStyles.infoLabel}>Variable Snapshot</Text>
                 <Text style={themedStyles.infoValue}>

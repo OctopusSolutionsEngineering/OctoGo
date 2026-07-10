@@ -798,6 +798,19 @@ export interface InterruptionFormControl {
 }
 
 // ============================================================================
+// Artifacts
+// ============================================================================
+
+export interface Artifact extends OctopusResource {
+  SpaceId: string;
+  Filename: string;
+  Source: string | null;
+  ServerTaskId: string;
+  Created: string;
+  LogCorrelationId: string | null;
+}
+
+// ============================================================================
 // Deployment Preview (for promotion)
 // ============================================================================
 

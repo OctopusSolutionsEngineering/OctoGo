@@ -14,6 +14,8 @@ import {
   Alert,
   TextInput,
   Modal,
+  Linking,
+  ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, Stack, useRouter } from 'expo-router';
@@ -35,7 +37,9 @@ import {
   useEnvironment,
   useTenant,
   useRunbook,
+  useArtifacts,
 } from '../../src/hooks/useOctopusQuery';
+import { getArtifactContentUrl } from '../../src/lib/api/client';
 import { StatusBadge } from '../../src/components/ui/StatusBadge';
 import { Card } from '../../src/components/ui/Card';
 import { Button } from '../../src/components/ui/Button';
@@ -265,6 +269,106 @@ const ReleaseNotesCard: React.FC<ReleaseNotesCardProps> = ({ task }) => {
       <View style={styles.releaseNotesContent}>
         <Text style={styles.releaseNotesText}>{releaseNotes}</Text>
       </View>
+    </Card>
+  );
+};
+
+// Artifacts component to show files created during deployment/runbook run
+interface ArtifactsCardProps {
+  taskId: string;
+  isCompleted: boolean;
+}
+
+const ArtifactsCard: React.FC<ArtifactsCardProps> = ({ taskId, isCompleted }) => {
+  const { data: artifacts, isLoading } = useArtifacts(taskId, { enabled: isCompleted });
+  const [openingId, setOpeningId] = useState<string | null>(null);
+
+  const handleOpenArtifact = async (artifactId: string) => {
+    try {
+      setOpeningId(artifactId);
+      const url = await getArtifactContentUrl(artifactId);
+      await Linking.openURL(url);
+    } catch (_error) {
+      Alert.alert('Error', 'Unable to open artifact. Please try again.');
+    } finally {
+      setOpeningId(null);
+    }
+  };
+
+  const getFileIcon = (filename: string): keyof typeof Ionicons.glyphMap => {
+    const ext = filename.split('.').pop()?.toLowerCase();
+    switch (ext) {
+      case 'xml':
+      case 'json':
+      case 'yaml':
+      case 'yml':
+        return 'code-slash-outline';
+      case 'log':
+      case 'txt':
+        return 'document-text-outline';
+      case 'zip':
+      case 'tar':
+      case 'gz':
+        return 'archive-outline';
+      case 'png':
+      case 'jpg':
+      case 'jpeg':
+      case 'gif':
+      case 'svg':
+        return 'image-outline';
+      case 'pdf':
+        return 'document-outline';
+      case 'html':
+      case 'htm':
+        return 'globe-outline';
+      default:
+        return 'attach-outline';
+    }
+  };
+
+  if (!isCompleted || isLoading) return null;
+  if (!artifacts || artifacts.length === 0) return null;
+
+  return (
+    <Card style={styles.artifactsCard}>
+      <View style={styles.artifactsHeader}>
+        <Ionicons name="folder-open" size={20} color={colors.status.success} />
+        <Text style={styles.artifactsTitle}>Artifacts</Text>
+        <View style={styles.artifactsBadge}>
+          <Text style={styles.artifactsBadgeText}>{artifacts.length}</Text>
+        </View>
+      </View>
+      {artifacts.map((artifact) => (
+        <Pressable
+          key={artifact.Id}
+          style={styles.artifactRow}
+          onPress={() => {
+            Haptics.selectionAsync();
+            handleOpenArtifact(artifact.Id);
+          }}
+        >
+          <View style={styles.artifactIconContainer}>
+            <Ionicons
+              name={getFileIcon(artifact.Filename)}
+              size={18}
+              color={colors.brand.primary}
+            />
+          </View>
+          <View style={styles.artifactInfo}>
+            <Text style={styles.artifactFilename} numberOfLines={1}>
+              {artifact.Filename}
+            </Text>
+            <Text style={styles.artifactMeta}>
+              {new Date(artifact.Created).toLocaleString()}
+            </Text>
+          </View>
+          {openingId === artifact.Id ? (
+            <ActivityIndicator size="small" color={colors.brand.primary} />
+          ) : (
+            <Ionicons name="open-outline" size={18} color={colors.text.tertiary} />
+          )}
+        </Pressable>
+      ))}
     </Card>
   );
 };
@@ -567,7 +671,7 @@ const InterventionCard: React.FC<InterventionCardProps> = ({
         </View>
       )}
 
-      {actions && (
+      {actions && actions.length > 0 && (
         <>
           <Pressable 
             style={styles.notesToggle}
@@ -667,7 +771,7 @@ const InterventionCard: React.FC<InterventionCardProps> = ({
               {confirmAction && getConfirmationMessage(confirmAction.key)}
             </Text>
 
-            {notes && (
+            {!!notes && (
               <View style={styles.modalNotesPreview}>
                 <Text style={styles.modalNotesLabel}>Your notes:</Text>
                 <Text style={styles.modalNotesText} numberOfLines={2}>{notes}</Text>
@@ -805,9 +909,9 @@ export default function TaskDetailScreen() {
   const formatDuration = (duration: string): string => {
     const parts = duration.split(':');
     if (parts.length >= 3) {
-      const hours = parseInt(parts[0]);
-      const minutes = parseInt(parts[1]);
-      const seconds = parseFloat(parts[2]).toFixed(0);
+      const hours = Number.parseInt(parts[0]);
+      const minutes = Number.parseInt(parts[1]);
+      const seconds = Number.parseFloat(parts[2]).toFixed(0);
       
       if (hours > 0) return `${hours}h ${minutes}m ${seconds}s`;
       if (minutes > 0) return `${minutes}m ${seconds}s`;
@@ -1003,7 +1107,7 @@ export default function TaskDetailScreen() {
               {task.Description || task.Name || `Task ${task.Id}`}
             </Text>
 
-            {task.ErrorMessage && (
+            {!!task.ErrorMessage && (
               <View style={styles.errorBanner}>
                 <Text style={styles.errorText}>{task.ErrorMessage}</Text>
               </View>
@@ -1079,6 +1183,9 @@ export default function TaskDetailScreen() {
             <ReleaseNotesCard task={task} />
           )}
 
+          {/* Artifacts - show for completed tasks */}
+          <ArtifactsCard taskId={id!} isCompleted={task.IsCompleted} />
+
           {/* Timing Info */}
           <Card style={styles.contextCard}>
             <Text style={styles.contextTitle}>Timing</Text>
@@ -1098,7 +1205,7 @@ export default function TaskDetailScreen() {
               <Text style={styles.contextValue}>{formatDate(task.StartTime)}</Text>
             </View>
             
-            {task.CompletedTime && (
+            {!!task.CompletedTime && (
               <View style={styles.contextRow}>
                 <View style={styles.contextLabelContainer}>
                   <Ionicons name="checkmark-circle-outline" size={16} color={colors.text.tertiary} />
@@ -1108,7 +1215,7 @@ export default function TaskDetailScreen() {
               </View>
             )}
             
-            {task.Duration && (
+            {!!task.Duration && (
               <View style={[styles.contextRow, { borderBottomWidth: 0 }]}>
                 <View style={styles.contextLabelContainer}>
                   <Ionicons name="time-outline" size={16} color={colors.text.tertiary} />
@@ -1381,6 +1488,65 @@ const styles = StyleSheet.create({
     color: colors.text.primary,
     fontSize: fontSize.sm,
     lineHeight: 22,
+  },
+  // Artifact styles
+  artifactsCard: {
+    padding: spacing.md,
+  },
+  artifactsHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    marginBottom: spacing.md,
+    paddingBottom: spacing.sm,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border.muted,
+  },
+  artifactsTitle: {
+    color: colors.text.primary,
+    fontSize: fontSize.md,
+    fontWeight: '600',
+    flex: 1,
+  },
+  artifactsBadge: {
+    backgroundColor: colors.status.success + '20',
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 2,
+    borderRadius: borderRadius.sm,
+  },
+  artifactsBadgeText: {
+    color: colors.status.success,
+    fontSize: fontSize.xs,
+    fontWeight: '600',
+  },
+  artifactRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: spacing.sm,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border.muted,
+    gap: spacing.sm,
+  },
+  artifactIconContainer: {
+    width: 32,
+    height: 32,
+    borderRadius: borderRadius.sm,
+    backgroundColor: colors.brand.primary + '15',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  artifactInfo: {
+    flex: 1,
+    gap: 2,
+  },
+  artifactFilename: {
+    color: colors.text.primary,
+    fontSize: fontSize.sm,
+    fontWeight: '500',
+  },
+  artifactMeta: {
+    color: colors.text.tertiary,
+    fontSize: fontSize.xs,
   },
   section: {
     marginTop: spacing.md,
