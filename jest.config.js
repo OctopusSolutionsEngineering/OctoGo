@@ -20,10 +20,10 @@ module.exports = {
     // below from the "global" group, so these floors apply only to the
     // remaining files (currently ~17.7% stmts / 8.5% branches).
     global: {
-      branches: 8,
-      functions: 14,
-      lines: 17,
-      statements: 17,
+      branches: 85,
+      functions: 88,
+      lines: 92,
+      statements: 92,
     },
     // Higher thresholds for core modules
     './src/lib/security.ts': {

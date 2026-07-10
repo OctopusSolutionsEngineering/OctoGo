@@ -154,4 +154,197 @@ describe('ProcessStepsView', () => {
     expect(screen.getByText('After previous step')).toBeTruthy();
     expect(screen.getByText('Let Octopus decide')).toBeTruthy();
   });
+
+  it('shows alternate start trigger and raw package requirement values', () => {
+    const step = makeStep([makeAction()], {
+      StartTrigger: 'StartWithPrevious',
+      PackageRequirement: 'AfterPackageAcquisition',
+    });
+
+    render(<ProcessStepsView steps={[step as any]} />);
+
+    fireEvent.press(screen.getByText('Step One'));
+
+    expect(screen.getByText('With previous step')).toBeTruthy();
+    expect(screen.getByText('AfterPackageAcquisition')).toBeTruthy();
+  });
+
+  it('maps action types to their icons in the actions list', () => {
+    const typed = (id: string, name: string, actionType: string) =>
+      makeAction({ Id: id, Name: name, ActionType: actionType });
+    const step = makeStep([
+      typed('a0', 'Push Package', 'Octopus.TentaclePackage'),
+      typed('a1', 'Helm Upgrade', 'Octopus.HelmChartUpgrade'),
+      typed('a2', 'Azure Deploy', 'Octopus.AzureWebApp'),
+      typed('a3', 'AWS CF', 'Octopus.AwsRunCloudFormation'),
+      typed('a4', 'TF Apply', 'Octopus.TerraformApply'),
+      typed('a5', 'Send Email', 'Octopus.Email'),
+      typed('a6', 'Approval', 'Octopus.Manual'),
+      typed('a7', 'Call Webhook', 'Octopus.HttpRequest'),
+      typed('a8', 'IIS Site', 'Octopus.IisWebSite'),
+      typed('a9', 'Mystery', 'Octopus.Vhd'),
+      typed('a10', 'Run Script', 'Octopus.Script'),
+    ]);
+
+    render(<ProcessStepsView steps={[step as any]} />);
+
+    fireEvent.press(screen.getByText('Step One'));
+
+    // Ionicons are mocked to render their name as text
+    expect(screen.getByText('Actions (11)')).toBeTruthy();
+    expect(screen.getByText('cube')).toBeTruthy();
+    expect(screen.getByText('logo-docker')).toBeTruthy();
+    expect(screen.getByText('cloud')).toBeTruthy();
+    expect(screen.getByText('logo-amazon')).toBeTruthy();
+    expect(screen.getByText('grid')).toBeTruthy();
+    expect(screen.getByText('notifications')).toBeTruthy();
+    expect(screen.getByText('hand-left')).toBeTruthy();
+    expect(screen.getByText('globe')).toBeTruthy();
+    expect(screen.getByText('logo-windows')).toBeTruthy();
+    expect(screen.getByText('flash')).toBeTruthy();
+    expect(screen.getByText('code-slash')).toBeTruthy();
+  });
+
+  it('marks disabled actions with a badge', () => {
+    const step = makeStep([makeAction({ Name: 'Old Step', IsDisabled: true })]);
+
+    render(<ProcessStepsView steps={[step as any]} />);
+
+    fireEvent.press(screen.getByText('Step One'));
+
+    expect(screen.getByText('Disabled')).toBeTruthy();
+  });
+
+  describe('action main content rendering', () => {
+    const openActionDetails = (actionName: string) => {
+      fireEvent.press(screen.getByText('Step One'));
+      const entries = screen.getAllByText(actionName);
+      fireEvent.press(entries[entries.length - 1]);
+    };
+
+    it.each([
+      [
+        'PowerShell script',
+        'Octopus.Script',
+        {
+          'Octopus.Action.Script.ScriptBody': 'Write-Host "hi"',
+          'Octopus.Action.Script.Syntax': 'PowerShell',
+        },
+        'PowerShell Script',
+        'Write-Host "hi"',
+      ],
+      [
+        'Python script',
+        'Octopus.Script',
+        {
+          'Octopus.Action.Script.ScriptBody': 'print(1)',
+          'Octopus.Action.Script.Syntax': 'Python',
+        },
+        'Python Script',
+        'print(1)',
+      ],
+      [
+        'script without syntax',
+        'Octopus.Script',
+        { 'Octopus.Action.Script.ScriptBody': 'run-thing' },
+        'Script',
+        'run-thing',
+      ],
+      [
+        'Kubernetes YAML',
+        'Octopus.KubernetesDeployRawYaml',
+        { 'Octopus.Action.KubernetesContainers.CustomResourceYaml': 'kind: Pod' },
+        'Kubernetes YAML',
+        'kind: Pod',
+      ],
+      [
+        'Terraform configuration',
+        'Octopus.TerraformApply',
+        { 'Octopus.Action.Terraform.Template': 'resource "x" {}' },
+        'Terraform Configuration',
+        'resource "x" {}',
+      ],
+      [
+        'manual instructions',
+        'Octopus.Manual',
+        { 'Octopus.Action.Manual.Instructions': 'Check the site' },
+        'Instructions',
+        'Check the site',
+      ],
+      [
+        'Slack message',
+        'Octopus.Slack',
+        { 'Octopus.Action.Slack.Message': 'hello team' },
+        'Message',
+        'hello team',
+      ],
+      [
+        'email body',
+        'Octopus.Email',
+        { 'Octopus.Action.Email.Body': '<p>Deployed</p>' },
+        'Email Body',
+        '<p>Deployed</p>',
+      ],
+      [
+        'email subject only',
+        'Octopus.Email',
+        { 'Octopus.Action.Email.Subject': 'Release shipped' },
+        'Subject',
+        'Release shipped',
+      ],
+      [
+        'fallback script body for unknown types',
+        'Octopus.WildWest',
+        { 'Octopus.Action.Script.ScriptBody': 'echo fallback' },
+        'Script',
+        'echo fallback',
+      ],
+      [
+        'fallback template body for unknown types',
+        'Octopus.WildWest',
+        { 'Octopus.Action.Template.Body': 'template-body' },
+        'Content',
+        'template-body',
+      ],
+    ])('renders %s', (_label, actionType, properties, expectedLabel, expectedContent) => {
+      const action = makeAction({
+        Name: 'Target Action',
+        ActionType: actionType,
+        Properties: properties,
+      });
+
+      render(<ProcessStepsView steps={[makeStep([action]) as any]} />);
+      openActionDetails('Target Action');
+
+      expect(screen.getByText(expectedLabel)).toBeTruthy();
+      expect(screen.getByText(expectedContent)).toBeTruthy();
+    });
+
+    it('falls back to the raw environment id when it cannot be resolved', () => {
+      const action = makeAction({
+        Name: 'Scoped Action',
+        Environments: ['Environments-99'],
+      });
+
+      render(<ProcessStepsView steps={[makeStep([action]) as any]} />);
+      openActionDetails('Scoped Action');
+
+      expect(screen.getByText('Environment Scope')).toBeTruthy();
+      expect(screen.getByText('Environments-99')).toBeTruthy();
+    });
+
+    it('navigates back from the action details and closes the modal', () => {
+      const action = makeAction({ Name: 'Drill In' });
+
+      render(<ProcessStepsView steps={[makeStep([action]) as any]} />);
+      openActionDetails('Drill In');
+
+      // Back to the step details (icons are mocked to render their name)
+      fireEvent.press(screen.getByText('chevron-back'));
+      expect(screen.getByText('Step Configuration')).toBeTruthy();
+
+      fireEvent.press(screen.getByText('close'));
+      expect(screen.queryByText('Step Configuration')).toBeNull();
+    });
+  });
 });

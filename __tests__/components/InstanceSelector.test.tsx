@@ -5,7 +5,8 @@
  */
 
 import React from 'react';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react-native';
+import { Alert } from 'react-native';
+import { render, screen, fireEvent, waitFor, act } from '@testing-library/react-native';
 
 // Mock vector icons to avoid loading expo-font/expo-asset in tests
 jest.mock('@expo/vector-icons', () => {
@@ -153,5 +154,206 @@ describe('InstanceSelector', () => {
     fireEvent.press(screen.getByText('Production Server'));
 
     expect(screen.getByText('Loading...')).toBeTruthy();
+  });
+
+  describe('switching, rename and delete flows', () => {
+    // Find the button with the given label in the most recent Alert.alert
+    // call and press it (Alert is spied on, so buttons never render)
+    const pressAlertButton = async (label: string) => {
+      const lastCall = (Alert.alert as jest.Mock).mock.calls.at(-1);
+      expect(lastCall).toBeDefined();
+      const buttons = (lastCall?.[2] ?? []) as { text: string; onPress?: () => void }[];
+      const button = buttons.find((b) => b.text === label);
+      expect(button).toBeDefined();
+      await act(async () => {
+        button!.onPress?.();
+      });
+    };
+
+    beforeEach(() => {
+      jest.spyOn(Alert, 'alert').mockImplementation(() => {});
+    });
+
+    it('shows an alert with the error message when switching fails', async () => {
+      const auth = buildAuth({
+        switchInstance: jest.fn().mockResolvedValue({ success: false, error: 'Token expired' }),
+      });
+      mockUseAuth.mockReturnValue(auth);
+
+      render(<InstanceSelector />);
+
+      fireEvent.press(screen.getByText('Production Server'));
+      await act(async () => {
+        fireEvent.press(screen.getByText('Dev Server'));
+      });
+
+      await waitFor(() => {
+        expect(Alert.alert).toHaveBeenCalledWith('Switch Failed', 'Token expired');
+      });
+      // The modal stays open after a failed switch
+      expect(screen.getByText('Switch Instance')).toBeTruthy();
+    });
+
+    it('falls back to a generic message when the switch fails without one', async () => {
+      const auth = buildAuth({
+        switchInstance: jest.fn().mockResolvedValue({ success: false }),
+      });
+      mockUseAuth.mockReturnValue(auth);
+
+      render(<InstanceSelector />);
+
+      fireEvent.press(screen.getByText('Production Server'));
+      await act(async () => {
+        fireEvent.press(screen.getByText('Dev Server'));
+      });
+
+      await waitFor(() => {
+        expect(Alert.alert).toHaveBeenCalledWith('Switch Failed', 'Failed to switch instance');
+      });
+    });
+
+    it('shows the switching indicator and notifies the parent on success', async () => {
+      let resolveSwitch: (value: { success: boolean }) => void = () => {};
+      const auth = buildAuth({
+        switchInstance: jest.fn(
+          () => new Promise((resolve) => { resolveSwitch = resolve; })
+        ),
+      });
+      mockUseAuth.mockReturnValue(auth);
+      const onInstanceSwitch = jest.fn();
+
+      render(<InstanceSelector onInstanceSwitch={onInstanceSwitch} />);
+
+      fireEvent.press(screen.getByText('Production Server'));
+      fireEvent.press(screen.getByText('Dev Server'));
+
+      expect(await screen.findByText('Switching instance...')).toBeTruthy();
+
+      await act(async () => {
+        resolveSwitch({ success: true });
+      });
+
+      await waitFor(() => {
+        expect(onInstanceSwitch).toHaveBeenCalled();
+      });
+      expect(screen.queryByText('Switch Instance')).toBeNull();
+    });
+
+    it('renames an instance from the long-press menu', async () => {
+      const auth = buildAuth();
+      mockUseAuth.mockReturnValue(auth);
+
+      render(<InstanceSelector />);
+
+      fireEvent.press(screen.getByText('Production Server'));
+      fireEvent(screen.getByText('Dev Server'), 'longPress');
+
+      expect(Alert.alert).toHaveBeenCalledWith(
+        'Dev Server',
+        'What would you like to do?',
+        expect.any(Array)
+      );
+
+      await pressAlertButton('Rename');
+
+      // The rename modal opens after a short delay
+      expect(await screen.findByText('Rename Instance')).toBeTruthy();
+      const input = screen.getByDisplayValue('Dev Server');
+      fireEvent.changeText(input, '  Renamed Dev  ');
+
+      await act(async () => {
+        fireEvent.press(screen.getByText('Save'));
+      });
+
+      expect(auth.renameInstance).toHaveBeenCalledWith('instance-2', 'Renamed Dev');
+      // The instance selector modal reopens after renaming
+      expect(await screen.findByText('Switch Instance')).toBeTruthy();
+    });
+
+    it('does not rename when the new name is empty', async () => {
+      const auth = buildAuth();
+      mockUseAuth.mockReturnValue(auth);
+
+      render(<InstanceSelector />);
+
+      fireEvent.press(screen.getByText('Production Server'));
+      fireEvent(screen.getByText('Dev Server'), 'longPress');
+      await pressAlertButton('Rename');
+
+      await screen.findByText('Rename Instance');
+      fireEvent.changeText(screen.getByDisplayValue('Dev Server'), '   ');
+
+      await act(async () => {
+        fireEvent.press(screen.getByText('Save'));
+      });
+
+      expect(auth.renameInstance).not.toHaveBeenCalled();
+      // The rename modal stays open
+      expect(screen.getByText('Rename Instance')).toBeTruthy();
+    });
+
+    it('cancels the rename and reopens the instance list', async () => {
+      const auth = buildAuth();
+      mockUseAuth.mockReturnValue(auth);
+
+      render(<InstanceSelector />);
+
+      fireEvent.press(screen.getByText('Production Server'));
+      fireEvent(screen.getByText('Dev Server'), 'longPress');
+      await pressAlertButton('Rename');
+
+      await screen.findByText('Rename Instance');
+      fireEvent.press(screen.getByText('Cancel'));
+
+      expect(auth.renameInstance).not.toHaveBeenCalled();
+      expect(await screen.findByText('Switch Instance')).toBeTruthy();
+    });
+
+    it('deletes an instance after confirming the long-press remove option', async () => {
+      const auth = buildAuth({ deleteInstance: jest.fn().mockResolvedValue(undefined) });
+      mockUseAuth.mockReturnValue(auth);
+
+      render(<InstanceSelector />);
+
+      fireEvent.press(screen.getByText('Production Server'));
+      fireEvent(screen.getByText('Dev Server'), 'longPress');
+
+      // First alert: choose Remove; second alert: confirm removal
+      await pressAlertButton('Remove');
+      expect(Alert.alert).toHaveBeenLastCalledWith(
+        'Remove Instance',
+        expect.stringContaining('Dev Server'),
+        expect.any(Array)
+      );
+      await pressAlertButton('Remove');
+
+      await waitFor(() => {
+        expect(auth.deleteInstance).toHaveBeenCalledWith('instance-2');
+      });
+    });
+
+    it('shows the empty state when no instances are configured', () => {
+      mockUseAuth.mockReturnValue(buildAuth({ instances: [], currentInstance: null }));
+
+      render(<InstanceSelector />);
+
+      fireEvent.press(screen.getByText('Select Instance'));
+
+      expect(screen.getByText('No instances configured')).toBeTruthy();
+    });
+
+    it('closes the modal with the close button', async () => {
+      render(<InstanceSelector />);
+
+      fireEvent.press(screen.getByText('Production Server'));
+      expect(screen.getByText('Switch Instance')).toBeTruthy();
+
+      // Ionicons are mocked to render their name as text
+      fireEvent.press(screen.getByText('close'));
+
+      await waitFor(() => {
+        expect(screen.queryByText('Switch Instance')).toBeNull();
+      });
+    });
   });
 });

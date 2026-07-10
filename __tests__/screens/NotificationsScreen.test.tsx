@@ -5,6 +5,7 @@
  */
 
 import React from 'react';
+import { Alert, Modal, RefreshControl } from 'react-native';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react-native';
 
 // Mock vector icons to avoid loading expo-font/expo-asset in tests
@@ -248,5 +249,406 @@ describe('NotificationsScreen', () => {
     render(<NotificationsScreen />);
 
     expect(screen.getByText('All Clear!')).toBeTruthy();
+  });
+
+  it('shows the loading screen when loading with nothing to display', () => {
+    mockUseNotifications.mockReturnValue(
+      buildNotifications({
+        pendingInterruptions: [],
+        isLoading: true,
+        totalCount: 0,
+      })
+    );
+
+    render(<NotificationsScreen />);
+
+    expect(screen.getByText('Loading notifications...')).toBeTruthy();
+  });
+
+  it('formats relative timestamps for hours, days and just now', () => {
+    mockUseNotifications.mockReturnValue(
+      buildNotifications({
+        pendingInterruptions: [
+          makeInterruption({ Id: 'Interruptions-now', Created: new Date().toISOString() }),
+          makeInterruption({
+            Id: 'Interruptions-hours',
+            Created: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
+          }),
+          makeInterruption({
+            Id: 'Interruptions-days',
+            Created: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString(),
+          }),
+        ],
+        totalCount: 3,
+        manualInterventionCount: 3,
+      })
+    );
+
+    render(<NotificationsScreen />);
+
+    expect(screen.getByText('Just now')).toBeTruthy();
+    expect(screen.getByText('2h ago')).toBeTruthy();
+    expect(screen.getByText('3d ago')).toBeTruthy();
+  });
+
+  it('navigates to the task when the task context row is pressed', () => {
+    render(<NotificationsScreen />);
+
+    fireEvent.press(screen.getByText('Deploy Web App 1.0.0 to Production'));
+
+    expect(mockPush).toHaveBeenCalledWith('/task/ServerTasks-1');
+  });
+
+  it('refetches both current and cross-instance data on pull to refresh', () => {
+    const notifications = buildNotifications();
+    mockUseNotifications.mockReturnValue(notifications);
+
+    render(<NotificationsScreen />);
+
+    fireEvent(screen.UNSAFE_getByType(RefreshControl), 'refresh');
+
+    expect(notifications.refetch).toHaveBeenCalled();
+    expect(notifications.refetchCrossInstance).toHaveBeenCalled();
+  });
+
+  it('shows a confirmation message per guided-failure action and cancels cleanly', async () => {
+    const notifications = buildNotifications({
+      pendingInterruptions: [
+        makeInterruption({
+          Id: 'Interruptions-2',
+          Title: 'Step failed on web-01',
+          Form: { Values: { Guidance: 'GuidedFailure' }, Elements: [] },
+        }),
+      ],
+      manualInterventionCount: 0,
+      guidedFailureCount: 1,
+    });
+    mockUseNotifications.mockReturnValue(notifications);
+
+    render(<NotificationsScreen />);
+
+    fireEvent.press(screen.getByText('Guided Failure'));
+
+    // Retry -> cancel
+    fireEvent.press(screen.getByText('Retry'));
+    expect(screen.getByText('This will retry the failed step.')).toBeTruthy();
+    fireEvent.press(screen.getByText('Cancel'));
+    expect(screen.queryByText('This will retry the failed step.')).toBeNull();
+
+    // Fail -> cancel
+    fireEvent.press(screen.getByText('Fail'));
+    expect(
+      screen.getByText('This will mark the step as failed and stop the deployment.')
+    ).toBeTruthy();
+    fireEvent.press(screen.getByText('Cancel'));
+
+    // Ignore -> cancel
+    fireEvent.press(screen.getByText('Ignore'));
+    expect(
+      screen.getByText('This will ignore the failure and continue with the deployment.')
+    ).toBeTruthy();
+    fireEvent.press(screen.getByText('Cancel'));
+
+    // Exclude (ghost variant) -> confirm
+    fireEvent.press(screen.getByText('Exclude Machine'));
+    expect(
+      screen.getByText('This will exclude the machine and continue with the deployment.')
+    ).toBeTruthy();
+    const excludeButtons = screen.getAllByText('Exclude Machine');
+    fireEvent.press(excludeButtons[excludeButtons.length - 1]);
+
+    await waitFor(() => {
+      expect(notifications.submitInterruption).toHaveBeenCalledWith(
+        'Interruptions-2',
+        'Exclude',
+        undefined,
+        undefined,
+        undefined
+      );
+    });
+  });
+
+  it('closes the confirmation modal via the hardware back handler and stops content presses', () => {
+    render(<NotificationsScreen />);
+
+    expandIntervention();
+    fireEvent.press(screen.getByText('Proceed'));
+    expect(screen.getByText('Confirm Proceed')).toBeTruthy();
+
+    // Pressing the modal content should not dismiss (stopPropagation)
+    fireEvent.press(screen.getByText('Confirm Proceed'), { stopPropagation: () => {} });
+    expect(screen.getByText('Confirm Proceed')).toBeTruthy();
+
+    // The first Modal belongs to the intervention card
+    fireEvent(screen.UNSAFE_getAllByType(Modal)[0], 'requestClose');
+    expect(screen.queryByText('Confirm Proceed')).toBeNull();
+  });
+
+  it('alerts when submitting a response fails', async () => {
+    const alertSpy = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
+    const notifications = buildNotifications({
+      submitInterruption: jest.fn().mockRejectedValue(new Error('boom')),
+    });
+    mockUseNotifications.mockReturnValue(notifications);
+
+    render(<NotificationsScreen />);
+
+    expandIntervention();
+    fireEvent.press(screen.getByText('Abort'));
+    const abortButtons = screen.getAllByText('Abort');
+    fireEvent.press(abortButtons[abortButtons.length - 1]);
+
+    await waitFor(() => {
+      expect(alertSpy).toHaveBeenCalledWith(
+        'Error',
+        'Failed to submit response. Please try again.'
+      );
+    });
+  });
+
+  it('alerts when taking responsibility fails', async () => {
+    const alertSpy = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
+    const notifications = buildNotifications({
+      pendingInterruptions: [
+        makeInterruption({
+          HasResponsibility: false,
+          ResponsibleUserId: null,
+          CanTakeResponsibility: true,
+        }),
+      ],
+      takeResponsibility: jest.fn().mockRejectedValue(new Error('boom')),
+    });
+    mockUseNotifications.mockReturnValue(notifications);
+
+    render(<NotificationsScreen />);
+
+    expandIntervention();
+    fireEvent.press(screen.getByText('Take Responsibility'));
+
+    await waitFor(() => {
+      expect(alertSpy).toHaveBeenCalledWith(
+        'Error',
+        'Failed to take responsibility. Please try again.'
+      );
+    });
+  });
+
+  describe('cross-instance interruptions', () => {
+    const makeCrossInstance = (overrides: Record<string, unknown> = {}) => ({
+      interruption: makeInterruption({ Id: 'Interruptions-x1', Title: 'Approve on staging box' }),
+      instanceId: 'instance-2',
+      instanceName: 'Staging Instance',
+      spaceId: 'Spaces-9',
+      spaceName: 'Default',
+      ...overrides,
+    });
+
+    it('renders the cross-instance section, filters duplicates and submits with instance context', async () => {
+      const notifications = buildNotifications({
+        crossInstanceInterruptions: [
+          // Same instance + space as current: filtered out
+          makeCrossInstance({
+            interruption: makeInterruption({ Id: 'Interruptions-dup', Title: 'Duplicate item' }),
+            instanceId: 'instance-1',
+            spaceId: 'Spaces-1',
+          }),
+          makeCrossInstance(),
+        ],
+        lastCrossInstancePoll: new Date('2026-07-10T10:30:00'),
+      });
+      mockUseNotifications.mockReturnValue(notifications);
+
+      render(<NotificationsScreen />);
+
+      expect(screen.getByText('Current Space')).toBeTruthy();
+      expect(screen.getByText('Other Instances & Spaces')).toBeTruthy();
+      expect(screen.getByText(/Last checked:/)).toBeTruthy();
+      expect(screen.getByText('Staging Instance • Default')).toBeTruthy();
+      expect(screen.queryByText('Duplicate item')).toBeNull();
+
+      // Expand the cross-instance card (second Manual Intervention label)
+      const labels = screen.getAllByText('Manual Intervention');
+      fireEvent.press(labels[labels.length - 1]);
+
+      fireEvent.press(screen.getByText('Proceed'));
+      const proceedButtons = screen.getAllByText('Proceed');
+      fireEvent.press(proceedButtons[proceedButtons.length - 1]);
+
+      await waitFor(() => {
+        expect(notifications.submitInterruption).toHaveBeenCalledWith(
+          'Interruptions-x1',
+          'Proceed',
+          undefined,
+          'instance-2',
+          'Spaces-9'
+        );
+      });
+    });
+
+    it('takes responsibility with the instance and space of the cross-instance item', async () => {
+      const notifications = buildNotifications({
+        pendingInterruptions: [],
+        crossInstanceInterruptions: [
+          makeCrossInstance({
+            interruption: makeInterruption({
+              Id: 'Interruptions-x2',
+              HasResponsibility: false,
+              ResponsibleUserId: null,
+              CanTakeResponsibility: true,
+            }),
+          }),
+        ],
+      });
+      mockUseNotifications.mockReturnValue(notifications);
+
+      render(<NotificationsScreen />);
+
+      fireEvent.press(screen.getByText('Manual Intervention'));
+      fireEvent.press(screen.getByText('Take Responsibility'));
+
+      await waitFor(() => {
+        expect(notifications.takeResponsibility).toHaveBeenCalledWith(
+          'Interruptions-x2',
+          'instance-2',
+          'Spaces-9'
+        );
+      });
+    });
+  });
+
+  describe('cross-instance auth failure modal', () => {
+    const authFailure = {
+      instanceId: 'instance-2',
+      instanceName: 'Staging Instance',
+      serverUrl: 'https://staging.octopus.app',
+      message: 'Invalid API key.',
+    };
+
+    const renderWithAuthFailure = (overrides: Record<string, unknown> = {}) => {
+      const notifications = buildNotifications({
+        crossInstanceAuthFailures: [authFailure],
+        ...overrides,
+      });
+      mockUseNotifications.mockReturnValue(notifications);
+      render(<NotificationsScreen />);
+      return notifications;
+    };
+
+    it('shows the failure details and dismisses via the hardware back handler', () => {
+      const notifications = renderWithAuthFailure();
+
+      expect(screen.getByText('Instance Login Failed')).toBeTruthy();
+      expect(screen.getByText(/Could not authenticate "Staging Instance"/)).toBeTruthy();
+      expect(screen.getByText('https://staging.octopus.app')).toBeTruthy();
+
+      const modals = screen.UNSAFE_getAllByType(Modal);
+      fireEvent(modals[modals.length - 1], 'requestClose');
+
+      expect(notifications.clearCrossInstanceAuthFailure).toHaveBeenCalledWith('instance-2');
+      // The mocked failure list never empties, so the effect re-opens the
+      // modal immediately; the dismissal handler having run is what matters.
+    });
+
+    it('removes the failed instance successfully', async () => {
+      const deleteInstance = jest.fn().mockResolvedValue(undefined);
+      mockUseAuth.mockReturnValue({
+        currentInstance: { id: 'instance-1' },
+        currentSpace: { Id: 'Spaces-1' },
+        deleteInstance,
+        updateInstanceApiKey: jest.fn(),
+      });
+      const notifications = renderWithAuthFailure();
+
+      fireEvent.press(screen.getByText('Remove Instance'));
+
+      await waitFor(() => {
+        expect(deleteInstance).toHaveBeenCalledWith('instance-2');
+        expect(notifications.clearCrossInstanceAuthFailure).toHaveBeenCalledWith('instance-2');
+        expect(notifications.refetchCrossInstance).toHaveBeenCalled();
+      });
+    });
+
+    it('alerts when removing the failed instance fails', async () => {
+      const alertSpy = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
+      mockUseAuth.mockReturnValue({
+        currentInstance: { id: 'instance-1' },
+        currentSpace: { Id: 'Spaces-1' },
+        deleteInstance: jest.fn().mockRejectedValue(new Error('nope')),
+        updateInstanceApiKey: jest.fn(),
+      });
+      renderWithAuthFailure();
+
+      fireEvent.press(screen.getByText('Remove Instance'));
+
+      await waitFor(() => {
+        expect(alertSpy).toHaveBeenCalledWith(
+          'Remove Failed',
+          'Could not remove this instance. Please try again.'
+        );
+      });
+    });
+
+    it('walks through the API key editor: back, empty key, rejected key, then success', async () => {
+      const alertSpy = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
+      const updateInstanceApiKey = jest
+        .fn()
+        .mockResolvedValueOnce({ success: false, error: 'Key was rejected' })
+        .mockResolvedValueOnce({ success: true });
+      mockUseAuth.mockReturnValue({
+        currentInstance: { id: 'instance-1' },
+        currentSpace: { Id: 'Spaces-1' },
+        deleteInstance: jest.fn(),
+        updateInstanceApiKey,
+      });
+      const notifications = renderWithAuthFailure();
+
+      // Open the editor, then go back
+      fireEvent.press(screen.getByText('Update API Key'));
+      expect(screen.getByText(/Enter a new API key for "Staging Instance"/)).toBeTruthy();
+      fireEvent.press(screen.getByText('Back'));
+      expect(screen.getByText('Remove Instance')).toBeTruthy();
+
+      // Open again and try to save an empty key
+      fireEvent.press(screen.getByText('Update API Key'));
+      fireEvent.press(screen.getByText('Save Key'));
+      expect(alertSpy).toHaveBeenCalledWith('API Key Required', 'Please enter a new API key.');
+      expect(updateInstanceApiKey).not.toHaveBeenCalled();
+
+      // Save a key that the server rejects
+      fireEvent.changeText(screen.getByPlaceholderText('New API key'), 'API-BADKEY');
+      fireEvent.press(screen.getByText('Save Key'));
+      await waitFor(() => {
+        expect(alertSpy).toHaveBeenCalledWith('Update Failed', 'Key was rejected');
+      });
+
+      // Save again; this time it succeeds
+      fireEvent.press(screen.getByText('Save Key'));
+      await waitFor(() => {
+        expect(notifications.clearCrossInstanceAuthFailure).toHaveBeenCalledWith('instance-2');
+        expect(notifications.refetchCrossInstance).toHaveBeenCalled();
+      });
+    });
+
+    it('alerts when updating the API key throws', async () => {
+      const alertSpy = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
+      mockUseAuth.mockReturnValue({
+        currentInstance: { id: 'instance-1' },
+        currentSpace: { Id: 'Spaces-1' },
+        deleteInstance: jest.fn(),
+        updateInstanceApiKey: jest.fn().mockRejectedValue(new Error('network down')),
+      });
+      renderWithAuthFailure();
+
+      fireEvent.press(screen.getByText('Update API Key'));
+      fireEvent.changeText(screen.getByPlaceholderText('New API key'), 'API-NEWKEY');
+      fireEvent.press(screen.getByText('Save Key'));
+
+      await waitFor(() => {
+        expect(alertSpy).toHaveBeenCalledWith(
+          'Update Failed',
+          'Could not update the API key. Please try again.'
+        );
+      });
+    });
   });
 });
