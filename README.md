@@ -1,5 +1,7 @@
 # OctoGo
 
+![Quality Gate](.github/badges/alert_status.svg) ![Coverage](.github/badges/coverage.svg)
+
 An unofficial mobile companion app for [Octopus Deploy](https://octopus.com), built with Expo/React Native.
 
 **Stay connected to your DevOps pipeline on the go.** Monitor deployments, manage releases, trigger runbooks, and keep your infrastructure healthy—all from your pocket.
