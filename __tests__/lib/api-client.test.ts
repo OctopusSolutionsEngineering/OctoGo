@@ -49,7 +49,8 @@ describe('Octopus API Client', () => {
     // Default mock for credentials
     mockSecurity.getCredentials.mockResolvedValue({
       serverUrl: 'https://octopus.example.com',
-      apiKey: 'API-KEY123456789012345678901234',
+      // Deliberately not a valid Octopus key format so secret scanning ignores it
+      apiKey: 'API-FAKE-TEST-KEY',
       spaceId: 'Spaces-1',
     });
     
@@ -201,14 +202,13 @@ describe('Octopus API Client', () => {
   // ==========================================================================
   describe('getSpaces', () => {
     it('should return list of spaces', async () => {
-      const mockSpaces = {
-        Items: [
-          { Id: 'Spaces-1', Name: 'Default', IsDefault: true },
-          { Id: 'Spaces-2', Name: 'Production', IsDefault: false },
-        ],
-      };
+      // /api/spaces/all returns a plain array, not a paginated response
+      const mockSpaces = [
+        { Id: 'Spaces-1', Name: 'Default', IsDefault: true },
+        { Id: 'Spaces-2', Name: 'Production', IsDefault: false },
+      ];
 
-      mockAxios.onGet('/api/spaces').reply(200, mockSpaces);
+      mockAxios.onGet('/api/spaces/all').reply(200, mockSpaces);
 
       const result = await getSpaces();
 
@@ -217,7 +217,7 @@ describe('Octopus API Client', () => {
     });
 
     it('should return empty array when no spaces', async () => {
-      mockAxios.onGet('/api/spaces').reply(200, { Items: null });
+      mockAxios.onGet('/api/spaces/all').reply(200, null);
 
       const result = await getSpaces();
 
@@ -285,12 +285,11 @@ describe('Octopus API Client', () => {
   // ==========================================================================
   describe('getEnvironments', () => {
     it('should return all environments', async () => {
-      const mockEnvironments = {
-        Items: [
-          { Id: 'Environments-1', Name: 'Development' },
-          { Id: 'Environments-2', Name: 'Production' },
-        ],
-      };
+      // /environments/all returns a plain array, not a paginated response
+      const mockEnvironments = [
+        { Id: 'Environments-1', Name: 'Development' },
+        { Id: 'Environments-2', Name: 'Production' },
+      ];
 
       mockAxios.onGet(/\/api\/Spaces-1\/environments\/all/).reply(200, mockEnvironments);
 
