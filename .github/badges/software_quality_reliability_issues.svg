@@ -1,22 +1,22 @@
-<svg role="img" xmlns="http://www.w3.org/2000/svg" height="20" width="146">
+<svg role="img" xmlns="http://www.w3.org/2000/svg" height="20" width="139">
     <!-- SONARQUBE MEASURE -->
     <linearGradient id="b" x2="0" y2="100%">
         <stop offset="0" stop-color="#bbb" stop-opacity=".1"/>
         <stop offset="1" stop-opacity=".1"/>
     </linearGradient>
     <clipPath id="a">
-        <rect width="146" height="20" rx="3" fill="#fff"/>
+        <rect width="139" height="20" rx="3" fill="#fff"/>
     </clipPath>
     <g clip-path="url(#a)">
         <rect fill="#555" height="20" width="120"/>
-        <rect fill="#999999" height="20" width="26" x="120"/>
-        <rect fill="url(#b)" height="20" width="146"/>
+        <rect fill="#999999" height="20" width="19" x="120"/>
+        <rect fill="url(#b)" height="20" width="139"/>
     </g>
     <g fill="#fff" font-family="DejaVu Sans,Verdana,Geneva,sans-serif" font-size="11" text-anchor="left">
         <text x="26" y="15" textLength="88" fill="#010101" fill-opacity=".3">reliability issues</text>
         <text x="26" y="14" textLength="88">reliability issues</text>
-        <text x="126" y="15" textLength="14" fill="#010101" fill-opacity=".3">22</text>
-        <text x="126" y="14" textLength="14">22</text>
+        <text x="126" y="15" textLength="7" fill="#010101" fill-opacity=".3">0</text>
+        <text x="126" y="14" textLength="7">0</text>
     </g>
     <path d="M20.5797 10.9203C20.3472 10.9203 20.1595 10.7325 20.1595 10.5C20.1595 7.37888 17.6211 4.84052 14.5 4.84052C14.2674 4.84052 14.0797 4.6528 14.0797 4.42026C14.0797 4.18772 14.2674 4 14.5 4C18.0834 4 21 6.91659 21 10.5C21 10.7325 20.8123 10.9203 20.5797 10.9203Z" fill="#010101" fill-opacity="0.3"/>
 <path d="M14.5 17C10.9166 17 8 14.0834 8 10.5C8 10.2674 8.18772 10.0797 8.42026 10.0797C8.6528 10.0797 8.84052 10.2674 8.84052 10.5C8.84052 13.6211 11.3789 16.1595 14.5 16.1595C14.7325 16.1595 14.9203 16.3472 14.9203 16.5797C14.9203 16.8123 14.7325 17 14.5 17Z" fill="#010101" fill-opacity="0.3"/>
