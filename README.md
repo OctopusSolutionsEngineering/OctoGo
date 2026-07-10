@@ -1,6 +1,6 @@
 # OctoGo
 
-![Quality Gate](.github/badges/alert_status.svg) ![Coverage](.github/badges/coverage.svg)
+![Quality Gate](.github/badges/alert_status.svg) ![Coverage](.github/badges/coverage.svg) ![Duplicated Lines](.github/badges/duplicated_lines_density.svg) ![Lines of Code](.github/badges/ncloc.svg) ![Security Hotspots](.github/badges/security_hotspots.svg) ![Reliability Issues](.github/badges/software_quality_reliability_issues.svg) ![Maintainability Issues](.github/badges/software_quality_maintainability_issues.svg)
 
 An unofficial mobile companion app for [Octopus Deploy](https://octopus.com), built with Expo/React Native.
 

@@ -55,9 +55,11 @@ jobs:
           BADGE_TOKEN=$(curl -sf -u "$SONAR_TOKEN:" \
             "$SONAR_HOST_URL/api/project_badges/token?project=$PROJECT_KEY" | jq -r .token)
           mkdir -p .github/badges
-          for metric in alert_status coverage; do
+          for metric in alert_status coverage duplicated_lines_density ncloc \
+            security_hotspots software_quality_reliability_issues software_quality_maintainability_issues; do
             curl -sf "$SONAR_HOST_URL/api/project_badges/measure?project=$PROJECT_KEY&metric=$metric&token=$BADGE_TOKEN" \
-              -o ".github/badges/$metric.svg"
+              -o ".github/badges/$metric.svg" \
+              || echo "::warning::Could not fetch badge for $metric"
           done
           git add .github/badges
           if ! git diff --cached --quiet; then
