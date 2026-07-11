@@ -3,233 +3,628 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>OctoGo - Octopus Deploy in Your Pocket</title>
-  <meta name="description" content="Monitor deployments, run runbooks, and manage your Octopus Deploy infrastructure on the go. OctoGo brings the power of Octopus Deploy to iOS and Android.">
-  
+  <title>OctoGo — Octopus Deploy, off the desk</title>
+  <meta name="description" content="OctoGo is a native iOS and Android client for Octopus Deploy. Watch deployments land, run runbooks, and check on your infrastructure — without opening a laptop.">
+
   <!-- Favicon -->
   <link rel="icon" type="image/png" href="assets/icon.png">
   <link rel="apple-touch-icon" href="assets/icon.png">
-  
+
   <!-- Open Graph -->
-  <meta property="og:title" content="OctoGo - Octopus Deploy in Your Pocket">
-  <meta property="og:description" content="Monitor deployments, run runbooks, and manage your Octopus Deploy infrastructure on the go.">
-  <meta property="og:image" content="assets/og-image.png">
+  <meta property="og:title" content="OctoGo — Octopus Deploy, off the desk">
+  <meta property="og:description" content="A native mobile client for Octopus Deploy. Deployments, runbooks, and infrastructure health in your pocket.">
+  <meta property="og:image" content="assets/icon.png">
   <meta property="og:type" content="website">
-  
+
   <!-- Fonts -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&display=swap" rel="stylesheet">
-  
-  <!-- Ionicons -->
-  <script type="module" src="https://unpkg.com/ionicons@7.1.0/dist/ionicons/ionicons.esm.js"></script>
-  <script nomodule src="https://unpkg.com/ionicons@7.1.0/dist/ionicons/ionicons.js"></script>
-  
+  <link rel="preconnect" href="https://api.fontshare.com" crossorigin>
+  <link href="https://api.fontshare.com/v2/css?f[]=clash-display@500,600&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+
   <!-- Styles -->
   <link rel="stylesheet" href="css/styles.css">
 </head>
 <body>
+
   <!-- Header -->
   <header class="header">
     <div class="container header-inner">
       <a href="/" class="logo">
-        <img src="assets/icon.png" alt="OctoGo" class="logo-icon">
+        <img src="assets/icon.png" alt="" class="logo-icon">
         <span class="logo-text">OctoGo</span>
       </a>
-      <div class="header-cta">
-        <a href="#features" class="btn btn-outline">Features</a>
-        <a href="#download" class="btn btn-primary">Download</a>
-      </div>
+      <nav class="header-nav">
+        <a href="#features">Features</a>
+        <a href="#screens">Screens</a>
+        <a href="privacy.html">Privacy</a>
+      </nav>
+      <a href="#download" class="btn btn-primary btn-sm">Download</a>
     </div>
   </header>
 
-  <!-- Hero Section -->
+  <!-- Hero -->
   <section class="hero">
+    <div class="hero-canvas" id="hero-canvas" aria-hidden="true"></div>
     <div class="container hero-inner">
-      <div class="hero-content">
-        <div class="hero-badge">
-          <span class="hero-badge-dot"></span>
-          <span>Currently in beta testing on iOS and Android</span>
-        </div>
-        <h1>Octopus Deploy <span>in Your Pocket</span></h1>
-        <p class="hero-description">
-          Monitor deployments, trigger releases, run runbooks, and keep an eye on your infrastructure health — all from your mobile device.
+      <div class="hero-copy">
+        <p class="eyebrow">OctoGo · a native client for Octopus Deploy</p>
+        <h1 class="hero-title">
+          <span>The deploy went out.</span>
+          <span class="accent">You went home.</span>
+        </h1>
+        <p class="hero-sub">
+          OctoGo puts your Octopus Deploy instance on your phone. Watch deployments
+          land, kick off runbooks, and check on your infrastructure — without
+          opening a laptop.
         </p>
         <div class="hero-actions">
-          <a href="https://testflight.apple.com/join/H3J4PUDr" class="btn btn-store">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
-              <path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.81-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M13 3.5c.73-.83 1.94-1.46 2.94-1.5.13 1.17-.34 2.35-1.04 3.19-.69.85-1.83 1.51-2.95 1.42-.15-1.15.41-2.35 1.05-3.11z"/>
-            </svg>
-            <div class="btn-store-content">
-              <span class="btn-store-label">Testflight build available on the</span>
-              <span class="btn-store-name">App Store</span>
-            </div>
+          <a href="https://apps.apple.com/nz/app/octogo/id6757174070" class="btn btn-primary">
+            App Store
+            <span class="btn-note">iOS</span>
           </a>
-          <a href="#" class="btn btn-store">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
-              <path d="M3,20.5V3.5C3,2.91 3.34,2.39 3.84,2.15L13.69,12L3.84,21.85C3.34,21.6 3,21.09 3,20.5M16.81,15.12L6.05,21.34L14.54,12.85L16.81,15.12M20.16,10.81C20.5,11.08 20.75,11.5 20.75,12C20.75,12.5 20.53,12.9 20.18,13.18L17.89,14.5L15.39,12L17.89,9.5L20.16,10.81M6.05,2.66L16.81,8.88L14.54,11.15L6.05,2.66Z"/>
-            </svg>
-            <div class="btn-store-content">
-              <span class="btn-store-label">Coming soon to</span>
-              <span class="btn-store-name">Google Play Store</span>
-            </div>
+          <a href="https://play.google.com/store/apps/details?id=app.octogo.app" class="btn btn-ghost">
+            Google Play
+            <span class="btn-note">Android</span>
           </a>
         </div>
+
+        <div class="terminal" aria-hidden="true">
+          <div class="terminal-bar">
+            <span class="terminal-title">octogo · Default · live</span>
+            <span class="terminal-dot"></span>
+          </div>
+          <pre class="terminal-body" id="feed"></pre>
+        </div>
+        <p class="hero-hint" aria-hidden="true">tip: tap the water to ship a deploy</p>
       </div>
+
       <div class="hero-visual">
-        <div class="phone-mockup">
-           <img src="assets/main_screen.png" alt="OctoGo App" class="phone-screen">
+        <div class="phone" id="phone">
+          <img src="assets/main_screen.png" alt="OctoGo dashboard showing deployment status, favourite projects, and recent deployments" class="phone-screen">
         </div>
       </div>
     </div>
   </section>
 
-  <!-- Features Section -->
-  <section class="features" id="features">
+  <!-- Ticker -->
+  <div class="ticker" aria-hidden="true">
+    <div class="ticker-track">
+      <span>Native iOS &amp; Android</span><i>·</i>
+      <span>Connects directly to your instance</span><i>·</i>
+      <span>No middleman servers</span><i>·</i>
+      <span>No telemetry</span><i>·</i>
+      <span>Biometric lock</span><i>·</i>
+      <span>Multi-space, multi-instance</span><i>·</i>
+      <span>Native iOS &amp; Android</span><i>·</i>
+      <span>Connects directly to your instance</span><i>·</i>
+      <span>No middleman servers</span><i>·</i>
+      <span>No telemetry</span><i>·</i>
+      <span>Biometric lock</span><i>·</i>
+      <span>Multi-space, multi-instance</span><i>·</i>
+    </div>
+  </div>
+
+  <!-- Features -->
+  <section class="section" id="features">
     <div class="container">
-      <div class="section-header">
-        <h2>Everything You Need, On the Go</h2>
-        <p>All the power of Octopus Deploy, designed for mobile. Stay connected to your deployments wherever you are.</p>
+      <div class="section-rule">
+        <span class="rule-label">01 — What it does</span>
       </div>
-      
+      <h2 class="section-title reveal">The parts of Octopus you<br>actually need at 11pm.</h2>
+
       <div class="features-grid">
-        <div class="feature-card">
-          <div class="feature-icon">
-            <ion-icon name="rocket-outline"></ion-icon>
-          </div>
-          <h3>Deployments & Releases</h3>
-          <p>Monitor active deployments in real-time. View release history, trigger new deployments, and track progress with live task logs.</p>
-        </div>
-        
-        <div class="feature-card">
-          <div class="feature-icon">
-            <ion-icon name="clipboard-outline"></ion-icon>
-          </div>
+        <article class="feature reveal">
+          <span class="feature-index">01</span>
+          <h3>Deployments &amp; releases</h3>
+          <p>Watch tasks run with live logs. Promote a release to the next environment from wherever you happen to be standing.</p>
+        </article>
+        <article class="feature reveal">
+          <span class="feature-index">02</span>
           <h3>Runbooks</h3>
-          <p>Execute runbooks on the fly. Perfect for incident response or routine maintenance tasks when you're away from your desk.</p>
-        </div>
-        
-        <div class="feature-card">
-          <div class="feature-icon">
-            <ion-icon name="heart-outline"></ion-icon>
-          </div>
-          <h3>Machine Health</h3>
-          <p>Keep tabs on your deployment targets. See machine health status at a glance and investigate issues before they become problems.</p>
-        </div>
-        
-        <div class="feature-card">
-          <div class="feature-icon">
-            <ion-icon name="bar-chart-outline"></ion-icon>
-          </div>
-          <h3>Project Insights</h3>
-          <p>View deployment frequency, success rates, and trends across your projects. Understand your deployment performance instantly.</p>
-        </div>
-        
-        <div class="feature-card">
-          <div class="feature-icon">
-            <ion-icon name="globe-outline"></ion-icon>
-          </div>
-          <h3>Multi-Space Support</h3>
-          <p>Switch between spaces seamlessly. Manage multiple Octopus instances and spaces from a single app with easy context switching.</p>
-        </div>
-        
-        <div class="feature-card">
-          <div class="feature-icon">
-            <ion-icon name="flash-outline"></ion-icon>
-          </div>
-          <h3>Fast & Lightweight</h3>
-          <p>Built for speed. Quick launch times, efficient data usage, and a native experience that feels right at home on your device.</p>
-        </div>
+          <p>Restart the service from the couch. Prompted variables, environment pickers, and task output — the whole run, not a shortcut.</p>
+        </article>
+        <article class="feature reveal">
+          <span class="feature-index">03</span>
+          <h3>Targets &amp; health</h3>
+          <p>Every deployment target, its health, and what's on it. Spot the unhealthy machine before the pager does.</p>
+        </article>
+        <article class="feature reveal">
+          <span class="feature-index">04</span>
+          <h3>Insights</h3>
+          <p>Deployment frequency, success rate, and duration trends per project. Know whether Tuesday was normal.</p>
+        </article>
+        <article class="feature reveal">
+          <span class="feature-index">05</span>
+          <h3>Spaces &amp; instances</h3>
+          <p>Multiple instances, multiple spaces, one app. Switch context in two taps and keep favourites per space.</p>
+        </article>
+        <article class="feature reveal">
+          <span class="feature-index">06</span>
+          <h3>Built native</h3>
+          <p>A real native app — quick to open, easy on data, dark by default, with Face ID standing between the world and your API keys.</p>
+        </article>
       </div>
     </div>
   </section>
 
-  <!-- Screenshots Section -->
-  <section class="screenshots" id="screenshots">
+  <!-- Screens -->
+  <section class="section" id="screens">
     <div class="container">
-      <div class="section-header">
-        <h2>See It in Action</h2>
-        <p>A beautiful, intuitive interface designed specifically for mobile workflows.</p>
+      <div class="section-rule">
+        <span class="rule-label">02 — Screens</span>
       </div>
-      
-      <div class="screenshots-scroll">
-        <div class="screenshot-item">
-          <img src="assets/main_screen.png" alt="Dashboard" class="screenshot-img">
-          <p class="screenshot-label">Dashboard</p>
+      <div class="screens-head">
+        <h2 class="section-title reveal">Dense where it should be,<br>quiet everywhere else.</h2>
+        <div class="car-controls" id="car-controls">
+          <button class="car-btn" id="car-prev" aria-label="Previous screenshots">←</button>
+          <button class="car-btn" id="car-next" aria-label="Next screenshots">→</button>
         </div>
+      </div>
 
-        <div class="screenshot-item">
-          <img src="assets/screenshots/projects.png" alt="Projects" class="screenshot-img">
-          <p class="screenshot-label">Projects</p>
-        </div>
-        
-        <div class="screenshot-item">
-          <img src="assets/screenshots/deployments.png" alt="Deployments" class="screenshot-img">
-          <p class="screenshot-label">Deployments</p>
-        </div>
-        
-        <div class="screenshot-item">
-          <img src="assets//screenshots/runbooks.png" alt="Runbooks" class="screenshot-img">
-          <p class="screenshot-label">Runbooks</p>
-        </div>
+      <div class="car-track" id="car-track">
+        <figure class="screen">
+          <img src="assets/main_screen.png" alt="Dashboard screen" loading="lazy" draggable="false">
+          <figcaption>01 / Dashboard</figcaption>
+        </figure>
+        <figure class="screen">
+          <img src="assets/screenshots/projects.png" alt="Projects screen" loading="lazy" draggable="false">
+          <figcaption>02 / Projects</figcaption>
+        </figure>
+        <figure class="screen">
+          <img src="assets/screenshots/deployments.png" alt="Deployments screen" loading="lazy" draggable="false">
+          <figcaption>03 / Deployments</figcaption>
+        </figure>
+        <figure class="screen">
+          <img src="assets/screenshots/runbooks.png" alt="Runbooks screen" loading="lazy" draggable="false">
+          <figcaption>04 / Runbooks</figcaption>
+        </figure>
+        <figure class="screen">
+          <img src="assets/screenshots/targets.png" alt="Deployment targets screen" loading="lazy" draggable="false">
+          <figcaption>05 / Targets</figcaption>
+        </figure>
+      </div>
+    </div>
+  </section>
 
-        <div class="screenshot-item">
-          <img src="assets//screenshots/targets.png" alt="Targets" class="screenshot-img">
-          <p class="screenshot-label">Targets</p>
+  <!-- Trust -->
+  <section class="section" id="trust">
+    <div class="container">
+      <div class="section-rule">
+        <span class="rule-label">03 — Between you and your server: nothing</span>
+      </div>
+      <div class="trust-grid">
+        <div class="trust-item reveal">
+          <h3>Direct connection</h3>
+          <p>The app talks straight to your Octopus instance over HTTPS. There is no OctoGo backend, relay, or proxy in the middle.</p>
+        </div>
+        <div class="trust-item reveal">
+          <h3>Keys stay on device</h3>
+          <p>API keys live in the iOS Keychain or Android Keystore, optionally behind Face ID or fingerprint. They never leave your phone.</p>
+        </div>
+        <div class="trust-item reveal">
+          <h3>No telemetry</h3>
+          <p>No analytics SDKs, no trackers, no usage data. What you deploy is your business. <a href="privacy.html">Read the privacy policy →</a></p>
         </div>
       </div>
     </div>
   </section>
 
-  <!-- CTA Section -->
-  <section class="cta" id="download">
-    <div class="container cta-inner">
-      <h2>Ready to Deploy on the Go?</h2>
-      <p>Download OctoGo today and take control of your Octopus Deploy infrastructure from anywhere.</p>
-      
-      <div class="cta-actions">
-        <a href="#" class="btn btn-store">
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
-            <path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.81-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M13 3.5c.73-.83 1.94-1.46 2.94-1.5.13 1.17-.34 2.35-1.04 3.19-.69.85-1.83 1.51-2.95 1.42-.15-1.15.41-2.35 1.05-3.11z"/>
-          </svg>
-          <div class="btn-store-content">
-            <span class="btn-store-label">Download on the</span>
-            <span class="btn-store-name">App Store</span>
-          </div>
+  <!-- Download -->
+  <section class="section download" id="download">
+    <div class="container">
+      <div class="section-rule">
+        <span class="rule-label">04 — Get it</span>
+      </div>
+      <h2 class="section-title reveal">On your phone before<br>the deploy finishes.</h2>
+      <div class="download-actions">
+        <a href="https://apps.apple.com/nz/app/octogo/id6757174070" class="btn btn-primary btn-lg">
+          App Store
+          <span class="btn-note">iOS</span>
         </a>
-        <a href="#" class="btn btn-store">
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
-            <path d="M3,20.5V3.5C3,2.91 3.34,2.39 3.84,2.15L13.69,12L3.84,21.85C3.34,21.6 3,21.09 3,20.5M16.81,15.12L6.05,21.34L14.54,12.85L16.81,15.12M20.16,10.81C20.5,11.08 20.75,11.5 20.75,12C20.75,12.5 20.53,12.9 20.18,13.18L17.89,14.5L15.39,12L17.89,9.5L20.16,10.81M6.05,2.66L16.81,8.88L14.54,11.15L6.05,2.66Z"/>
-          </svg>
-          <div class="btn-store-content">
-            <span class="btn-store-label">Get it on</span>
-            <span class="btn-store-name">Google Play</span>
-          </div>
+        <a href="https://play.google.com/store/apps/details?id=app.octogo.app" class="btn btn-ghost btn-lg">
+          Google Play
+          <span class="btn-note">Android</span>
         </a>
       </div>
+      <p class="download-note">Free to download. Bring your own Octopus Deploy instance.</p>
     </div>
   </section>
 
   <!-- Footer -->
   <footer class="footer">
     <div class="container footer-inner">
-      <div class="footer-logo">
-        <img src="assets/icon.png" alt="OctoGo">
+      <div class="footer-brand">
+        <img src="assets/icon.png" alt="" class="logo-icon">
         <span>OctoGo</span>
       </div>
-      
       <nav class="footer-links">
         <a href="#features">Features</a>
-        <a href="#screenshots">Screenshots</a>
-        <a href="privacy.html">Privacy Policy</a>
-        <a href="mailto:support@octogo.app">Contact</a>
+        <a href="#screens">Screens</a>
+        <a href="privacy.html">Privacy</a>
+        <a href="mailto:support@octogo.app">support@octogo.app</a>
       </nav>
-      
-      <p class="footer-copyright">
-        © 2026 OctoGo. Not affiliated with Octopus Deploy. All rights reserved.
-      </p>
+      <p class="footer-note">© 2026 OctoGo. Not affiliated with Octopus Deploy.</p>
     </div>
   </footer>
+
+  <script>
+  // Everything is inline (with three.js pulled in via dynamic import) so the page
+  // stays fully functional when opened straight from disk — file:// blocks local
+  // module files, but not CDN imports.
+  (function () {
+    'use strict';
+    var reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+    /* ---------- live terminal feed ---------- */
+    var PROJECTS = ['Profile Sync', 'Swift Bridge', 'Customer Identity Hub', 'Billing API', 'Auth Gateway', 'Web Portal', 'Ledger Service', 'Notification Hub'];
+    var ENVS = ['Development', 'Test', 'Staging', 'Production'];
+    var SPIN = ['⠋','⠙','⠹','⠸','⠼','⠴','⠦','⠧','⠇','⠏'];
+    var feedEl = document.getElementById('feed');
+    var lines = [];          // finished lines (strings of HTML)
+    var current = null;      // {name, ver, env, started}
+    var spinFrame = 0;
+    var onDeployLanded = null; // hooked by the octopus to jet on landing
+
+    function pad(s, n) { return (s + ' '.repeat(n)).slice(0, Math.max(n, s.length)); }
+    function ver() { return 'v26.7.' + (10000 + Math.floor(Math.random() * 89999)); }
+    function pick(a) { return a[Math.floor(Math.random() * a.length)]; }
+    function dur(ms) {
+      var s = Math.round(ms / 1000);
+      return s >= 60 ? Math.floor(s / 60) + 'm' + pad('' + (s % 60), 2).trim() + 's' : s + 's';
+    }
+
+    function render() {
+      // always exactly three rows so the terminal never changes height
+      var show = current ? lines.slice(-2) : lines.slice(-3);
+      var html = show.join('\n');
+      if (current) {
+        html += (html ? '\n' : '') +
+          '<span class="t-run">' + SPIN[spinFrame] + '</span> ' +
+          pad(current.name, 22) + ' <span class="t-dim">' + current.ver + ' → ' + pad(current.env, 11) + '</span> <span class="t-run">running</span>';
+      }
+      feedEl.innerHTML = html;
+    }
+
+    function finish(ok) {
+      if (!current) return;
+      var mark = ok ? '<span class="t-ok">✓</span>' : '<span class="t-err">✗</span>';
+      var tail = ok ? dur(Date.now() - current.started + 40000 * Math.random()) : '<span class="t-err">failed</span>';
+      lines.push(mark + ' ' + pad(current.name, 22) + ' <span class="t-dim">' + current.ver + ' → ' + pad(current.env, 11) + '</span> ' + tail);
+      if (lines.length > 3) lines.shift();
+      current = null;
+      render();
+      if (onDeployLanded) onDeployLanded();
+    }
+
+    function start() {
+      current = { name: pick(PROJECTS), ver: ver(), env: pick(ENVS), started: Date.now() };
+      render();
+    }
+
+    // seed
+    lines.push('<span class="t-ok">✓</span> ' + pad('Profile Sync', 22) + ' <span class="t-dim">v26.7.31211 → Production </span> 1m42s');
+    lines.push('<span class="t-ok">✓</span> ' + pad('Swift Bridge', 22) + ' <span class="t-dim">v26.7.16162 → Staging    </span> 58s');
+    lines.push('<span class="t-ok">✓</span> ' + pad('Billing API', 22) + ' <span class="t-dim">v26.7.10464 → Test       </span> 12s');
+    start();
+
+    if (!reduced) {
+      setInterval(function () { spinFrame = (spinFrame + 1) % SPIN.length; render(); }, 90);
+      (function cycle() {
+        setTimeout(function () {
+          finish(Math.random() > 0.12);
+          setTimeout(start, 700 + Math.random() * 900);
+          cycle();
+        }, 3200 + Math.random() * 3200);
+      })();
+    }
+
+    // Public hook: complete the running deploy right now (used by canvas taps).
+    window.__octogoShip = function () {
+      if (current) { finish(true); setTimeout(start, 500); }
+    };
+    window.__octogoOnLand = function (fn) { onDeployLanded = fn; };
+
+    /* ---------- phone tilt + float ---------- */
+    var phone = document.getElementById('phone');
+    var hero = document.querySelector('.hero');
+    if (phone && !reduced && matchMedia('(pointer: fine)').matches) {
+      hero.addEventListener('mousemove', function (e) {
+        var r = phone.getBoundingClientRect();
+        var dx = (e.clientX - (r.left + r.width / 2)) / innerWidth;
+        var dy = (e.clientY - (r.top + r.height / 2)) / innerHeight;
+        phone.style.transform =
+          'perspective(1100px) rotateY(' + (dx * 10) + 'deg) rotateX(' + (-dy * 8) + 'deg)';
+      });
+      hero.addEventListener('mouseleave', function () {
+        phone.style.transform = 'perspective(1100px)';
+      });
+    }
+
+    /* ---------- scroll reveals ---------- */
+    var revealEls = document.querySelectorAll('.reveal');
+    if (reduced || !('IntersectionObserver' in window)) {
+      revealEls.forEach(function (el) { el.classList.add('in'); });
+    } else {
+      var io = new IntersectionObserver(function (entries) {
+        entries.forEach(function (en) {
+          if (en.isIntersecting) { en.target.classList.add('in'); io.unobserve(en.target); }
+        });
+      }, { threshold: 0.25 });
+      revealEls.forEach(function (el) { io.observe(el); });
+    }
+
+    /* ---------- carousel ---------- */
+    var track = document.getElementById('car-track');
+    var controls = document.getElementById('car-controls');
+    var slides = Array.prototype.slice.call(track.children);
+
+    function slideStep() {
+      return slides.length > 1
+        ? slides[1].offsetLeft - slides[0].offsetLeft
+        : track.clientWidth;
+    }
+    document.getElementById('car-prev').addEventListener('click', function () {
+      track.scrollBy({ left: -slideStep(), behavior: reduced ? 'auto' : 'smooth' });
+    });
+    document.getElementById('car-next').addEventListener('click', function () {
+      track.scrollBy({ left: slideStep(), behavior: reduced ? 'auto' : 'smooth' });
+    });
+
+    // hide the arrows entirely when everything already fits
+    function updateControls() {
+      controls.style.display = track.scrollWidth > track.clientWidth + 8 ? '' : 'none';
+    }
+    updateControls();
+    addEventListener('resize', updateControls);
+
+    // dim slides that are cut off at the edges
+    var cio = new IntersectionObserver(function (entries) {
+      entries.forEach(function (en) {
+        en.target.classList.toggle('dim', en.intersectionRatio < 0.6);
+      });
+    }, { root: track, threshold: [0.6] });
+    slides.forEach(function (s) { cio.observe(s); });
+
+    // drag to scroll (mouse)
+    var dragging = false, startX = 0, startScroll = 0, moved = false;
+    track.addEventListener('pointerdown', function (e) {
+      if (e.pointerType !== 'mouse') return;
+      dragging = true; moved = false;
+      startX = e.clientX; startScroll = track.scrollLeft;
+      track.classList.add('dragging');
+      track.setPointerCapture(e.pointerId);
+    });
+    track.addEventListener('pointermove', function (e) {
+      if (!dragging) return;
+      var dx = e.clientX - startX;
+      if (Math.abs(dx) > 4) moved = true;
+      track.scrollLeft = startScroll - dx;
+    });
+    function endDrag() { dragging = false; track.classList.remove('dragging'); }
+    track.addEventListener('pointerup', endDrag);
+    track.addEventListener('pointercancel', endDrag);
+    track.addEventListener('click', function (e) { if (moved) e.preventDefault(); }, true);
+
+    /* ---------- three.js: the logo octopus, swimming (decorative) ---------- */
+    var mount = document.getElementById('hero-canvas');
+    if (!mount) return;
+
+    import('https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js').then(function (THREE) {
+      var renderer;
+      try {
+        renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+      } catch (err) { return; }
+
+      var scene = new THREE.Scene();
+      var camera = new THREE.PerspectiveCamera(40, 1, 0.1, 20);
+      camera.position.z = 3.4;
+      renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+      mount.appendChild(renderer.domElement);
+
+      var strokeMat = new THREE.MeshBasicMaterial({ color: 0x9d97ff, transparent: true, opacity: 0.22, depthWrite: false });
+
+      var octo = new THREE.Group();   // world placement (swim drift)
+      var body = new THREE.Group();   // local bob/jet
+      octo.add(body);
+      octo.scale.setScalar(0.78);
+      scene.add(octo);
+
+      /* --- the actual mark: centerlines traced from assets/icon.png (600px space).
+             Same path data as assets/octopus.svg. Each stroke waves with a weight
+             function w(s): 0 = rigid (head), 1 = free (tentacle tips). --- */
+      function domeWeight(s) { return s < 0.42 ? 0 : Math.pow((s - 0.42) / 0.58, 2); }
+      var TRACE = [
+        { amp: 0.6, sp: 1.1, ph: 0.0, w: domeWeight, // dome + left curl (one stroke)
+          pts: [[363,336],[363,300],[363,250],[362,215],[357,193],[344,176],[327,166],[308,163],[289,166],[272,176],[259,193],[254,215],[253,250],[253,300],[251,322],[245,344],[233,363],[216,376],[206,381],[188,377],[172,368],[159,353],[152,335],[150,315],[152,295],[158,278],[168,265],[178,258],[189,259],[197,266],[202,276],[204,288],[204,292]] },
+        { amp: 1.0, sp: 1.5, ph: 2.1, w: function (s) { return Math.pow(Math.max(0, 1 - s / 0.65), 1.5); }, // middle J, hangs from the top hook
+          pts: [[320,356],[330,375],[345,388],[362,392],[380,384],[395,370],[405,352],[411,330],[415,305],[416,280],[416,255],[419,240],[427,232],[437,231],[444,235]] },
+        { amp: 0.9, sp: 1.3, ph: 4.2, w: function (s) { return s * s; }, // right J, anchored at its top cap
+          pts: [[469,278],[469,300],[469,325],[466,350],[459,375],[448,398],[432,416],[412,428],[388,435],[362,438],[338,437],[330,435]] },
+        { amp: 0.8, sp: 1.7, ph: 5.3, w: function (s) { var d = Math.abs(2 * s - 1); return 0.35 + 0.65 * d; }, // bottom wave, sways at both ends
+          pts: [[130,391],[140,408],[155,420],[172,428],[190,431],[204,431],[225,427],[245,417],[262,404],[277,389],[288,373],[297,356],[304,340],[309,327],[310,321]] }
+      ];
+      var CX = 300, CY = 300, SC = 215;
+      var STROKE_R = 8.5 / SC;
+
+      var strokes = TRACE.map(function (cfg) {
+        var base = cfg.pts.map(function (p) {
+          return { x: (p[0] - CX) / SC, y: (CY - p[1]) / SC };
+        });
+        var mesh = new THREE.Mesh(new THREE.BufferGeometry(), strokeMat);
+        var capA = new THREE.Mesh(new THREE.SphereGeometry(STROKE_R, 14, 14), strokeMat);
+        var capB = new THREE.Mesh(new THREE.SphereGeometry(STROKE_R, 14, 14), strokeMat);
+        body.add(mesh, capA, capB);
+        return { cfg: cfg, base: base, mesh: mesh, capA: capA, capB: capB, phase: cfg.ph };
+      });
+
+      var FREQ = 4.5, BASE_AMP = 0.055;
+      function updateStrokes(burst) {
+        strokes.forEach(function (st) {
+          var n = st.base.length, pts = [];
+          var amp = BASE_AMP * st.cfg.amp * (1 + burst * 1.2);
+          for (var i = 0; i < n; i++) {
+            var s = i / (n - 1);
+            var prev = st.base[Math.max(0, i - 1)], next = st.base[Math.min(n - 1, i + 1)];
+            var tx = next.x - prev.x, ty = next.y - prev.y;
+            var len = Math.hypot(tx, ty) || 1;
+            var off = Math.sin(st.phase + s * FREQ) * amp * st.cfg.w(s);
+            pts.push(new THREE.Vector3(
+              st.base[i].x + (-ty / len) * off,
+              st.base[i].y + (tx / len) * off,
+              Math.sin(s * 3 + st.cfg.ph) * 0.04
+            ));
+          }
+          var geo = new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts), 80, STROKE_R, 12);
+          st.mesh.geometry.dispose();
+          st.mesh.geometry = geo;
+          st.capA.position.copy(pts[0]);
+          st.capB.position.copy(pts[n - 1]);
+        });
+      }
+
+      // eyes — traced positions, with the occasional blink
+      var eyeMat = new THREE.MeshBasicMaterial({ color: 0xd3d0ff, transparent: true, opacity: 0.3, depthWrite: false });
+      var eyes = [303, 339].map(function (ex) {
+        var eye = new THREE.Mesh(new THREE.CapsuleGeometry(9 / SC, 18 / SC, 6, 14), eyeMat);
+        eye.position.set((ex - CX) / SC, (CY - 237) / SC, 0.05);
+        body.add(eye);
+        return eye;
+      });
+      if (!reduced) {
+        (function blink() {
+          setTimeout(function () {
+            eyes.forEach(function (e) { e.scale.y = 0.12; });
+            setTimeout(function () { eyes.forEach(function (e) { e.scale.y = 1; }); }, 140);
+            blink();
+          }, 2800 + Math.random() * 3500);
+        })();
+      }
+
+      /* --- bubbles drifting up --- */
+      var spriteCanvas = document.createElement('canvas');
+      spriteCanvas.width = spriteCanvas.height = 64;
+      var ctx = spriteCanvas.getContext('2d');
+      var grad = ctx.createRadialGradient(32, 32, 0, 32, 32, 32);
+      grad.addColorStop(0, 'rgba(255,255,255,1)');
+      grad.addColorStop(0.4, 'rgba(255,255,255,0.6)');
+      grad.addColorStop(1, 'rgba(255,255,255,0)');
+      ctx.fillStyle = grad;
+      ctx.fillRect(0, 0, 64, 64);
+      var sprite = new THREE.CanvasTexture(spriteCanvas);
+
+      var BUBBLES = 260;
+      var bp = new Float32Array(BUBBLES * 3);
+      for (var b = 0; b < BUBBLES; b++) {
+        bp[b * 3] = (Math.random() - 0.5) * 9;
+        bp[b * 3 + 1] = (Math.random() - 0.5) * 4;
+        bp[b * 3 + 2] = -1.2 - Math.random() * 2.8;
+      }
+      var bg = new THREE.BufferGeometry();
+      bg.setAttribute('position', new THREE.BufferAttribute(bp, 3));
+      var bubbles = new THREE.Points(bg, new THREE.PointsMaterial({
+        color: 0x8f88ff, size: 0.022, map: sprite, transparent: true, opacity: 0.3,
+        sizeAttenuation: true, depthWrite: false, blending: THREE.AdditiveBlending
+      }));
+      scene.add(bubbles);
+
+      /* --- placement: anchor the octopus to the hero-visual column --- */
+      var visual = document.querySelector('.hero-visual');
+      var anchor = new THREE.Vector3();
+      var driftX = 0.35;
+      function layout() {
+        var w = mount.clientWidth, h = mount.clientHeight;
+        renderer.setSize(w, h);
+        camera.aspect = w / h;
+        camera.updateProjectionMatrix();
+        var rect = visual.getBoundingClientRect();
+        var mrect = mount.getBoundingClientRect();
+        var cx = (rect.left + rect.width / 2 - mrect.left) / w * 2 - 1;
+        var cy = -((rect.top + rect.height / 2 - mrect.top) / h * 2 - 1);
+        var half = Math.tan(camera.fov * Math.PI / 360) * camera.position.z;
+        // wide: swim in the open middle, left of the phone. narrow: tuck in behind it.
+        var mobile = w < 700;
+        octo.scale.setScalar(mobile ? 0.55 : 0.85);
+        driftX = mobile ? 0.1 : 0.18;
+        anchor.set(cx * half * camera.aspect - (mobile ? 0.05 : 0.62), cy * half - 0.05, 0);
+      }
+      layout();
+      addEventListener('resize', layout);
+
+      /* --- interaction: parallax + tap to ship --- */
+      var px = 0, py = 0, burst = 0;
+      addEventListener('mousemove', function (e) {
+        px = e.clientX / innerWidth * 2 - 1;
+        py = e.clientY / innerHeight * 2 - 1;
+      });
+      var downX = 0, downY = 0;
+      mount.addEventListener('pointerdown', function (e) { downX = e.clientX; downY = e.clientY; });
+      mount.addEventListener('pointerup', function (e) {
+        if (Math.abs(e.clientX - downX) < 6 && Math.abs(e.clientY - downY) < 6) {
+          window.__octogoShip();
+          burst = 1;
+        }
+      });
+      window.__octogoOnLand(function () { burst = 1; });
+
+      if (reduced) {
+        octo.position.copy(anchor);
+        updateStrokes(0);
+        renderer.render(scene, camera);
+        return;
+      }
+
+      var running = true;
+      document.addEventListener('visibilitychange', function () {
+        running = !document.hidden;
+        if (running) requestAnimationFrame(tick);
+      });
+
+      var t0 = performance.now();
+      var lastNow = t0, burstS = 0;
+      function tick(now) {
+        if (!running) return;
+        var t = (now - t0) / 1000;
+        var dt = Math.min(0.05, (now - lastNow) / 1000);
+        lastNow = now;
+
+        // burst envelope is smoothed both in and out — no snaps
+        burst *= 0.97;
+        burstS += (burst - burstS) * 0.06;
+
+        // swim: slow drift around the anchor, gentle roll, soft lift on burst
+        octo.position.set(
+          anchor.x + Math.sin(t * 0.31) * driftX,
+          anchor.y + Math.sin(t * 0.23) * 0.18 + burstS * 0.05,
+          0
+        );
+        octo.rotation.y = Math.sin(t * 0.19) * 0.15 + px * 0.12;
+        octo.rotation.z = Math.sin(t * 0.4) * 0.07;
+        octo.rotation.x = py * 0.1;
+        body.position.y = Math.sin(t * 1.1) * 0.05;
+
+        // advance each stroke's wave phase incrementally so speed changes never jump it
+        strokes.forEach(function (st) {
+          st.phase += dt * st.cfg.sp * (1 + burstS * 0.8);
+        });
+        updateStrokes(burstS);
+
+        // bubbles rise and wrap
+        var arr = bubbles.geometry.attributes.position.array;
+        for (var i = 0; i < BUBBLES; i++) {
+          arr[i * 3 + 1] += 0.0012 + (i % 5) * 0.0004;
+          if (arr[i * 3 + 1] > 2.2) arr[i * 3 + 1] = -2.2;
+        }
+        bubbles.geometry.attributes.position.needsUpdate = true;
+        bubbles.position.x = px * -0.1;
+
+        renderer.render(scene, camera);
+        requestAnimationFrame(tick);
+      }
+      requestAnimationFrame(tick);
+    }).catch(function () { /* offline / blocked CDN — hero still works without it */ });
+  })();
+  </script>
 </body>
 </html>
-

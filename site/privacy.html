@@ -3,39 +3,44 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Privacy Policy - OctoGo</title>
+  <title>Privacy Policy — OctoGo</title>
   <meta name="description" content="Privacy Policy for the OctoGo mobile application.">
-  
+
   <!-- Favicon -->
   <link rel="icon" type="image/png" href="assets/icon.png">
   <link rel="apple-touch-icon" href="assets/icon.png">
-  
+
   <!-- Fonts -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&display=swap" rel="stylesheet">
-  
+  <link rel="preconnect" href="https://api.fontshare.com" crossorigin>
+  <link href="https://api.fontshare.com/v2/css?f[]=clash-display@500,600&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+
   <!-- Styles -->
   <link rel="stylesheet" href="css/styles.css">
 </head>
 <body>
+
   <!-- Header -->
   <header class="header">
     <div class="container header-inner">
       <a href="/" class="logo">
-        <img src="assets/icon.png" alt="OctoGo" class="logo-icon">
+        <img src="assets/icon.png" alt="" class="logo-icon">
         <span class="logo-text">OctoGo</span>
       </a>
-      <div class="header-cta">
-        <a href="index.html#features" class="btn btn-outline">Features</a>
-        <a href="index.html#download" class="btn btn-primary">Download</a>
-      </div>
+      <nav class="header-nav">
+        <a href="index.html#features">Features</a>
+        <a href="index.html#screens">Screens</a>
+        <a href="privacy.html">Privacy</a>
+      </nav>
+      <a href="index.html#download" class="btn btn-primary btn-sm">Download</a>
     </div>
   </header>
 
   <!-- Privacy Content -->
-  <main class="privacy-page">
-    <div class="container privacy-content">
+  <main class="prose-page">
+    <div class="container prose">
       <h1>Privacy Policy</h1>
       <p class="last-updated">Last updated: December 30, 2025</p>
 
@@ -46,7 +51,7 @@
 
       <h2>Information We Collect</h2>
       <p>OctoGo is designed with privacy in mind. We collect minimal information necessary to provide our service:</p>
-      
+
       <h3>Information You Provide</h3>
       <ul>
         <li><strong>Octopus Deploy Server URL:</strong> The URL of your Octopus Deploy instance</li>
@@ -135,23 +140,18 @@
   <!-- Footer -->
   <footer class="footer">
     <div class="container footer-inner">
-      <div class="footer-logo">
-        <img src="assets/icon.png" alt="OctoGo">
+      <div class="footer-brand">
+        <img src="assets/icon.png" alt="" class="logo-icon">
         <span>OctoGo</span>
       </div>
-      
       <nav class="footer-links">
         <a href="index.html#features">Features</a>
-        <a href="index.html#screenshots">Screenshots</a>
-        <a href="privacy.html">Privacy Policy</a>
-        <a href="mailto:support@octogo.app">Contact</a>
+        <a href="index.html#screens">Screens</a>
+        <a href="privacy.html">Privacy</a>
+        <a href="mailto:support@octogo.app">support@octogo.app</a>
       </nav>
-      
-      <p class="footer-copyright">
-        © 2026 OctoGo. Not affiliated with Octopus Deploy. All rights reserved.
-      </p>
+      <p class="footer-note">© 2026 OctoGo. Not affiliated with Octopus Deploy.</p>
     </div>
   </footer>
 </body>
 </html>
-
