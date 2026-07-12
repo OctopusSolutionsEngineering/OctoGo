@@ -203,6 +203,18 @@ a { color: var(--ink); text-decoration: none; }
 .btn-sm { padding: 0.5rem 1rem; font-size: 0.85rem; }
 .btn-lg { padding: 1rem 1.8rem; font-size: 1.05rem; }
 
+/* github star button */
+
+.gh-btn {
+  align-items: center;
+  gap: 0.45rem;
+  color: var(--ink-2);
+}
+
+.gh-btn:hover { color: var(--ink); }
+
+.gh-mark { flex: 0 0 auto; }
+
 /* ---------- hero ---------- */
 
 .hero {
@@ -503,8 +515,8 @@ a { color: var(--ink); text-decoration: none; }
 
 .trust-grid {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 3rem;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 2.5rem;
 }
 
 .trust-item h3 {
@@ -542,6 +554,9 @@ a { color: var(--ink); text-decoration: none; }
   margin-top: 1.4rem;
 }
 
+.download-note a { color: var(--brand-bright); }
+.download-note a:hover { color: var(--ink); }
+
 /* ---------- reveals ---------- */
 
 .reveal {
@@ -559,6 +574,7 @@ a { color: var(--ink); text-decoration: none; }
 .feature.reveal:nth-child(3n) { transition-delay: 0.16s; }
 .trust-item.reveal:nth-child(2) { transition-delay: 0.08s; }
 .trust-item.reveal:nth-child(3) { transition-delay: 0.16s; }
+.trust-item.reveal:nth-child(4) { transition-delay: 0.24s; }
 
 /* ---------- footer ---------- */
 
@@ -693,8 +709,15 @@ a { color: var(--ink); text-decoration: none; }
   }
 }
 
+@media (max-width: 780px) {
+  /* nav + full "View Source" label don't both fit — keep the icon */
+  .gh-btn .gh-label { display: none; }
+}
+
 @media (max-width: 640px) {
   .header-nav { display: none; }
+
+  .header-inner { gap: 0.8rem; }
 
   .section { padding: 4.5rem 0 3.5rem; }
 
