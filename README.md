@@ -1,6 +1,6 @@
 # OctoGo
 
-![Quality Gate](.github/badges/alert_status.svg) ![Coverage](.github/badges/coverage.svg) ![Duplicated Lines](.github/badges/duplicated_lines_density.svg) ![Lines of Code](.github/badges/ncloc.svg) ![Security Hotspots](.github/badges/security_hotspots.svg) ![Reliability Issues](.github/badges/software_quality_reliability_issues.svg) ![Maintainability Issues](.github/badges/software_quality_maintainability_issues.svg)
+[![SonarQube](https://github.com/OctopusSolutionsEngineering/OctoGo/actions/workflows/sonarqube.yml/badge.svg)](https://github.com/OctopusSolutionsEngineering/OctoGo/actions/workflows/sonarqube.yml) ![Quality Gate](.github/badges/quality_gate.svg) ![Coverage](.github/badges/coverage.svg) ![Maintainability](.github/badges/maintainability.svg) ![Reliability](.github/badges/reliability.svg) ![Security](.github/badges/security.svg) ![Duplication](.github/badges/duplication.svg) ![Lines of Code](.github/badges/loc.svg)
 
 An unofficial mobile companion app for [Octopus Deploy](https://octopus.com), built with Expo/React Native.
 
